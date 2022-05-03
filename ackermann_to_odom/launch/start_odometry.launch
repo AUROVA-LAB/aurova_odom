@@ -1,0 +1,9 @@
+<launch>
+
+  <rosparam command="load" file="$(find robot_blue)/params/imu_calib.yaml" />
+
+  <node pkg="virtual_imu" type="virtual_imu" name="virtual_imu" output="screen"/>
+
+  <node pkg="ackermann_to_odom" type="ackermann_to_odom" name="ackermann_to_odom" />
+
+</launch>
