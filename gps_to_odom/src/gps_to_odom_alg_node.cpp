@@ -96,9 +96,9 @@ void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::NavSatFix::ConstPtr
   this->odom_gps_.pose.pose.position.x = fix_tf.point.x;
   this->odom_gps_.pose.pose.position.y = fix_tf.point.y;
   this->odom_gps_.pose.pose.position.z = 0.0;
-  this->odom_gps_.pose.covariance[0] = 1.0;//fix_msg->position_covariance[0];
-  this->odom_gps_.pose.covariance[7] = 1.0;//fix_msg->position_covariance[4];
-  this->odom_gps_.pose.covariance[14] = 1.0;//fix_msg->position_covariance[8];
+  this->odom_gps_.pose.covariance[0] = fix_msg->position_covariance[0];
+  this->odom_gps_.pose.covariance[7] = fix_msg->position_covariance[4];
+  this->odom_gps_.pose.covariance[14] = fix_msg->position_covariance[8];
 
   this->flag_gnss_position_received_ = true;
 
@@ -219,17 +219,17 @@ void GpsToOdomAlgNode::cb_getBotGpsVelMsg(const geometry_msgs::TwistWithCovarian
     // given by the input message (it will be just diagonal using an UBLOX M8P sensor)
 
     Eigen::Matrix3d UTM_vel_covariance = Eigen::Matrix3d::Zero();
-    UTM_vel_covariance(0, 0) = 1.0;//vel_msg->twist.covariance[0];
-    UTM_vel_covariance(0, 1) = 0.0;//vel_msg->twist.covariance[1];
-    UTM_vel_covariance(0, 2) = 0.0;//vel_msg->twist.covariance[2];
+    UTM_vel_covariance(0, 0) = vel_msg->twist.covariance[0];
+    UTM_vel_covariance(0, 1) = vel_msg->twist.covariance[1];
+    UTM_vel_covariance(0, 2) = vel_msg->twist.covariance[2];
 
-    UTM_vel_covariance(1, 0) = 0.0;//vel_msg->twist.covariance[6];
-    UTM_vel_covariance(1, 1) = 1.0;//vel_msg->twist.covariance[7];
-    UTM_vel_covariance(1, 2) = 0.0;//vel_msg->twist.covariance[8];
+    UTM_vel_covariance(1, 0) = vel_msg->twist.covariance[6];
+    UTM_vel_covariance(1, 1) = vel_msg->twist.covariance[7];
+    UTM_vel_covariance(1, 2) = vel_msg->twist.covariance[8];
 
-    UTM_vel_covariance(2, 0) = 0.0;//vel_msg->twist.covariance[12];
-    UTM_vel_covariance(2, 1) = 0.0;//vel_msg->twist.covariance[13];
-    UTM_vel_covariance(2, 2) = 1.0;//vel_msg->twist.covariance[14];
+    UTM_vel_covariance(2, 0) = vel_msg->twist.covariance[12];
+    UTM_vel_covariance(2, 1) = vel_msg->twist.covariance[13];
+    UTM_vel_covariance(2, 2) = vel_msg->twist.covariance[14];
 
     Eigen::Matrix3d map_vel_cov = Eigen::Matrix3d::Zero();
     map_vel_cov = UTM_to_map_rotation.linear() * UTM_vel_covariance * UTM_to_map_rotation.linear().transpose();
