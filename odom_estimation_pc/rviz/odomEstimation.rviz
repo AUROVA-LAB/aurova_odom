@@ -86,7 +86,7 @@ Visualization Manager:
         All Enabled: true
         base_link:
           Value: true
-        odom_lidar:
+        odom:
           Value: true
       Marker Scale: 3
       Name: TF
@@ -94,7 +94,7 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        odom_lidar:
+        odom:
           base_link:
             {}
       Update Interval: 0
@@ -207,7 +207,7 @@ Visualization Manager:
   Global Options:
     Background Color: 48; 48; 48
     Default Light: true
-    Fixed Frame: odom_lidar
+    Fixed Frame: odom
     Frame Rate: 30
   Name: root
   Tools:

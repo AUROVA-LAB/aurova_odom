@@ -115,7 +115,7 @@ void odom_estimation(){
             transform.setOrigin( tf::Vector3(t_current.x(), t_current.y(), t_current.z()) );
             tf::Quaternion q(q_current.x(),q_current.y(),q_current.z(),q_current.w());
             transform.setRotation(q);
-            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom_lidar", "base_link"));
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", "velodyne"));
 
 
             // Velocity
@@ -140,8 +140,8 @@ void odom_estimation(){
 
             // publish odometry
             nav_msgs::Odometry laserOdometry;
-            laserOdometry.header.frame_id = "odom_lidar";
-            laserOdometry.child_frame_id = "base_link";
+            laserOdometry.header.frame_id = "odom";
+            laserOdometry.child_frame_id = "velodyne";
             laserOdometry.header.stamp = pointcloud_time;
             laserOdometry.pose.pose.orientation.x = q_current.x();
             laserOdometry.pose.pose.orientation.y = q_current.y();

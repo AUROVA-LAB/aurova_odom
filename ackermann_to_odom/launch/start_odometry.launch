@@ -4,6 +4,8 @@
 
   <node pkg="virtual_imu" type="virtual_imu" name="virtual_imu" output="screen"/>
 
-  <node pkg="ackermann_to_odom" type="ackermann_to_odom" name="ackermann_to_odom" />
+  <node pkg="ackermann_to_odom" type="ackermann_to_odom" name="ackermann_to_odom">
+      <remap from="odometry" to="odom" />
+  </node>
 
 </launch>
