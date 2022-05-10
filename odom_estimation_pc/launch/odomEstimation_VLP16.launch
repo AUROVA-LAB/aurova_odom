@@ -13,7 +13,7 @@
     <param name="edge_limit" type="double" value="15000" />
     <param name="surf_limit" type="double" value="15000" />
 
-    <node pkg="odom_estimation_pc" type="odom_estimation_node" name="odom_estimation_node" output="screen"/>
+    <node pkg="odom_estimation_pc" type="odom_estimation_node" name="odom_estimation_node"/>
    
     <!--
     <arg name="rviz" default="true" />

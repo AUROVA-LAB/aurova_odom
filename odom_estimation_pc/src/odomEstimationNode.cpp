@@ -110,6 +110,17 @@ void odom_estimation(){
             Eigen::Quaterniond q_current(odomEstimation.odom.rotation());
             Eigen::Vector3d t_current = odomEstimation.odom.translation();
 
+            ///////////////////////////////////////////////////////
+            // Project to 2D!!!
+            t_current.z() = 0.0;
+            double siny_cosp = 2 * (q_current.w() * q_current.z() + q_current.x() * q_current.y());
+            double cosy_cosp = 1 - 2 * (q_current.y() * q_current.y() + q_current.z() * q_current.z());
+            double yaw = std::atan2(siny_cosp, cosy_cosp);
+            Eigen::AngleAxisd yaw_angle(yaw, Eigen::Vector3d::UnitZ());
+            q_current = yaw_angle;
+            ///////////////////////////////////////////////////////
+            ///////////////////////////////////////////////////////
+
             static tf::TransformBroadcaster br;
             tf::Transform transform;
             transform.setOrigin( tf::Vector3(t_current.x(), t_current.y(), t_current.z()) );
