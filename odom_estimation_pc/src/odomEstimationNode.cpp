@@ -128,6 +128,12 @@ void odom_estimation(){
             transform.setRotation(q);
             br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", "velodyne"));
 
+            //// TODO: FROM URDF!!!!!!!!
+            transform.setOrigin( tf::Vector3(-0.55, 0.0, -0.645) );
+            tf::Quaternion q2(0.0, 0.0, 0.0, 1.0);
+            transform.setRotation(q2);
+            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "velodyne", "base_link"));
+
 
             // Velocity
             double u_x = (t_current.x() - x_pos_prev)/time_delay;

@@ -23,7 +23,7 @@
     -->
 
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_lilo" ns="base_link" >
-        <param name="/target_frame_name" value="odom_lidar" />
+        <param name="/target_frame_name" value="map" />
         <param name="/source_frame_name" value="base_link" />
         <param name="/trajectory_update_rate" value="10.0" />
         <param name="/trajectory_publish_rate" value="10.0" />
