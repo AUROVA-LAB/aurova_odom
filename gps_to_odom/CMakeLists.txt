@@ -4,6 +4,7 @@ project(gps_to_odom)
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED)
 find_package(planning REQUIRED)
+find_package(PCL REQUIRED)
 FIND_PACKAGE(Eigen3 REQUIRED)
 # ******************************************************************** 
 #                 Add catkin additional components here
@@ -78,6 +79,7 @@ DEPENDS Eigen
 # ******************************************************************** 
 include_directories(include)
 include_directories(${catkin_INCLUDE_DIRS}
+		     ${PCL_INCLUDE_DIRS}
                     ${EIGEN_INCLUDE_DIRS})
 # include_directories(${<dependency>_INCLUDE_DIR})
 
