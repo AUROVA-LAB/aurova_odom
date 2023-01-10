@@ -50,6 +50,7 @@ void GpsToOdomAlgNode::mainNodeThread(void)
   // [fill action structure and make request to the action server]
 
   // [publish messages]
+  this->flag_gnss_velocity_received_ = true;
   if (this->flag_gnss_position_received_ && this->flag_gnss_velocity_received_)
   {
     this->odom_gps_pub_.publish(this->odom_gps_);
