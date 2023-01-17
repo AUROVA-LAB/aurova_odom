@@ -1,6 +1,6 @@
 ### Example of usage:
 
-You can run an example following the instructions in: [application_navigation](https://github.com/AUROVA-LAB/application_navigation) and [application_localization](https://github.com/AUROVA-LAB/application_localization).
+You can run an example following the instructions in [applications](https://github.com/AUROVA-LAB/applications) (Examples).
 
 # aurova_odom
 This is a metapackage that contains different packages that perform different kind of odometry nodes. Compiling this metapackage into ROS will compile all the packages at once. This metapackage is grouped as a project for eclipse C++. Each package contains a "name_doxygen_config" configuration file for generate doxygen documentation. The packages contained in this metapackage are:
