@@ -37,6 +37,7 @@
 #include "nav_msgs/Odometry.h"
 #include "sensor_msgs/NavSatFix.h"
 #include "geometry_msgs/TwistWithCovarianceStamped.h"
+#include "geometry_msgs/TwistStamped.h"
 #include "geometry_msgs/Vector3Stamped.h"
 #include "math.h"
 #include "planning/graph.h"

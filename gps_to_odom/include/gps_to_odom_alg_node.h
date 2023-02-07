@@ -69,6 +69,7 @@ private:
   ros::Subscriber sim_vel_sub_;
   ros::Subscriber bot_fix_sub_;
   ros::Subscriber bot_vel_sub_;
+  ros::Subscriber nco_vel_sub_; // nco = no covariance
 
 
 	/**
@@ -98,6 +99,13 @@ private:
    * execution of the node.
    */
   void cb_getBotGpsVelMsg(const geometry_msgs::TwistWithCovarianceStamped::ConstPtr& vel_msg);
+
+    /**
+   * \brief callback for read fix velocity messages (from sensor)
+   * This message can be read from different localization sources by remapping in the
+   * execution of the node.
+   */
+  void cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::ConstPtr& vel_msg);
 
   // [service attributes]
 
