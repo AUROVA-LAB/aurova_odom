@@ -34,6 +34,11 @@ OdomEstimationClass odomEstimation;
 std::mutex mutex_lock;
 std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudEdgeBuf;
 std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudSurfBuf;
+
+std::string childframeID = "os_sesnor";
+std::string edge_pcl = "/edge_pcl";
+std::string surf_pcl = "/surf_pcl";
+
 lidar::Lidar lidar_param;
 
 ros::Publisher pubLaserOdometry;
@@ -158,7 +163,7 @@ void odom_estimation(){
             // publish odometry
             nav_msgs::Odometry laserOdometry;
             laserOdometry.header.frame_id = "odom";
-            laserOdometry.child_frame_id = "os_sensor";
+            laserOdometry.child_frame_id = childframeID;
             laserOdometry.header.stamp = pointcloud_time;
             laserOdometry.pose.pose.orientation.x = q_current.x();
             laserOdometry.pose.pose.orientation.y = q_current.y();
@@ -230,6 +235,10 @@ int main(int argc, char **argv)
 
     nh.getParam("/edge_limit", edge_limit);
     nh.getParam("/surf_limit", surf_limit);
+
+    nh.getParam("/childframeID",childframeID);
+    nh.getParam("/pcl_edge",edge_pcl);
+    nh.getParam("/pcl_surf",surf_pcl);
 
     lidar_param.setScanPeriod(scan_period);
     lidar_param.setValidationAngle(validation_angle);

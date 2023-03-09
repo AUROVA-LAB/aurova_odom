@@ -5,13 +5,16 @@
     <param name="max_dis" type="double" value="50" />
     <param name="min_dis" type="double" value="0.01" /> 
     <param name="scan_line" type="int" value="1" /> 
-    <param name="edge_resolution" type="double" value="0.4" />
-    <param name="surf_resolution" type="double" value="0.8" />
+    <param name="edge_resolution" type="double" value="0.5" />
+    <param name="surf_resolution" type="double" value="1.0" />
     <param name="velodyne_height" type="double" value="-20" />
     <param name="validation_height" type="bool" value="false" />
     <param name="clear_map" type="bool" value="false" />
     <param name="edge_limit" type="double" value="15000" />
     <param name="surf_limit" type="double" value="15000" />
+    <param name="/pcl_edge" type="str" value="/pcl_edge" />
+    <param name="/pcl_surf" type="str" value="/pcl_surf" />
+    <param name="/childframeID" type="str" value="os_sensor" />    
     <node pkg="odom_estimation_pc" type="odom_estimation_node" name="odom_estimation_node" />
 
 
