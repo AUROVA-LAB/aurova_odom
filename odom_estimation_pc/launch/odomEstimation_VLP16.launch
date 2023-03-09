@@ -12,15 +12,18 @@
     <param name="clear_map" type="bool" value="false" />
     <param name="edge_limit" type="double" value="15000" />
     <param name="surf_limit" type="double" value="15000" />
+    <param name="/pcl_edge" type="str" value="/pcl_edge" />
+    <param name="/pcl_surf" type="str" value="/pcl_surf" />
+    <param name="/childframeID" type="str" value="velodyne" />    
 
     <node pkg="odom_estimation_pc" type="odom_estimation_node" name="odom_estimation_node"/>
    
-    <!--
-    <arg name="rviz" default="true" />
+    
+    <arg name="rviz" default="false" />
     <group if="$(arg rviz)">
         <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find odom_estimation_pc)/rviz/odomEstimation.rviz" />
     </group>
-    -->
+    
 
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_lilo" ns="base_link" >
         <param name="/target_frame_name" value="map" />
