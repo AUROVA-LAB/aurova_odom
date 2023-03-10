@@ -36,8 +36,8 @@ std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudEdgeBuf;
 std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudSurfBuf;
 
 std::string childframeID = "os_sesnor";
-std::string edge_pcl = "/edge_pcl";
-std::string surf_pcl = "/surf_pcl";
+std::string edge_pcl = "/pcl_edge";
+std::string surf_pcl = "/pcl_surf";
 
 lidar::Lidar lidar_param;
 
@@ -249,8 +249,8 @@ int main(int argc, char **argv)
 
     odomEstimation.init(lidar_param, edge_resolution, surf_resolution);
     
-    ros::Subscriber subEdgeLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/pc_edge", 100, velodyneEdgeHandler);
-    ros::Subscriber subSurfLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>("/pc_surf", 100, velodyneSurfHandler);
+    ros::Subscriber subEdgeLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(edge_pcl, 100, velodyneEdgeHandler);
+    ros::Subscriber subSurfLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(surf_pcl, 100, velodyneSurfHandler);
 
     pubLaserOdometry = nh.advertise<nav_msgs::Odometry>("/odom", 100);
     time_average = nh.advertise<std_msgs::Float64>("/time_average", 100);
