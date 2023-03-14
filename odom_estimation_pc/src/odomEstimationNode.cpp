@@ -42,6 +42,7 @@ std::string surf_pcl = "/pcl_surf";
 lidar::Lidar lidar_param;
 
 ros::Publisher pubLaserOdometry;
+ros::Publisher pubOdometryDiff;
 
 ros::Publisher time_average;
 
@@ -66,15 +67,11 @@ int total_frame=0;
 bool clear_map;
 void odom_estimation(){
 
-    // previous odometry
-    double x_orient_prev = 0;
-    double y_orient_prev = 0;
-    double z_orient_prev = 0;
-
-    double x_pos_prev = 0;
-    double y_pos_prev = 0;
-    double z_pos_prev = 0;
     float time_delay  = 0;
+
+    Eigen::Quaterniond q_diff;
+    Eigen::Vector3d t_diff;
+    Eigen::Isometry3d odom_prev = Eigen::Isometry3d::Identity();;
 
 
     while(1){
@@ -110,8 +107,6 @@ void odom_estimation(){
             }
 
 
-
-
             Eigen::Quaterniond q_current(odomEstimation.odom.rotation());
             Eigen::Vector3d t_current = odomEstimation.odom.translation();
 
@@ -139,27 +134,23 @@ void odom_estimation(){
             transform.setRotation(q2);
             br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "os_sensor", "base_link"));
 
+          
+            Eigen::Isometry3d odom = Eigen::Isometry3d::Identity();
+            odom.linear() = q_current.toRotationMatrix();
+            odom.translation() = t_current;
 
-            // Velocity
-            double u_x = (t_current.x() - x_pos_prev)/time_delay;
-            double u_y = (t_current.y() - y_pos_prev)/time_delay;
-            double u_z = (t_current.z() - z_pos_prev)/time_delay;
+            Eigen::Isometry3d odomdiff = (odom_prev.inverse() * odom);
+            q_diff = Eigen::Quaterniond(odomdiff.rotation());
+            t_diff = odomdiff.translation();
+            Eigen::Isometry3d odom_curr = odom_prev * odomdiff;
 
-            double w_x = (q_current.x() - x_orient_prev)/time_delay;
-            double w_y = (q_current.y() - y_orient_prev)/time_delay;
-            double w_z = (q_current.z() - z_orient_prev)/time_delay;
+            Eigen::Quaterniond q_c = Eigen::Quaterniond(odom_curr.rotation());;
+            Eigen::Vector3d t_c = odom_curr.translation();
 
-            // previous odometry
-
-            x_pos_prev = t_current.x();
-            y_pos_prev = t_current.y();
-            z_pos_prev = t_current.z();
-
-            x_orient_prev = q_current.x() ;
-            y_orient_prev = q_current.y() ;
-            z_orient_prev = q_current.z() ;
+            odom_prev = odom;
 
 
+             
             // publish odometry
             nav_msgs::Odometry laserOdometry;
             laserOdometry.header.frame_id = "odom";
@@ -172,12 +163,20 @@ void odom_estimation(){
             laserOdometry.pose.pose.position.x = t_current.x();
             laserOdometry.pose.pose.position.y = t_current.y();
             laserOdometry.pose.pose.position.z = t_current.z();
-            laserOdometry.twist.twist.linear.x = u_x;
-            laserOdometry.twist.twist.linear.y = u_y;
-            laserOdometry.twist.twist.linear.z = u_z;
-            laserOdometry.twist.twist.angular.x = w_x;
-            laserOdometry.twist.twist.angular.y = w_y;
-            laserOdometry.twist.twist.angular.z = w_z;
+
+            nav_msgs::Odometry odomDiff;
+            odomDiff.header.frame_id = "odom";
+            odomDiff.child_frame_id = childframeID;
+            odomDiff.header.stamp = pointcloud_time;
+            odomDiff.pose.pose.orientation.x = q_diff.x();
+            odomDiff.pose.pose.orientation.y = q_diff.y();
+            odomDiff.pose.pose.orientation.z = q_diff.z();
+            odomDiff.pose.pose.orientation.w = q_diff.w();
+            odomDiff.pose.pose.position.x = t_diff.x();
+            odomDiff.pose.pose.position.y = t_diff.y();
+            odomDiff.pose.pose.position.z = t_diff.z();
+
+
 
             for(int i = 0; i<36; i++) {
               if(i == 0 || i == 7 || i == 14) {
@@ -192,6 +191,7 @@ void odom_estimation(){
             }
 
             pubLaserOdometry.publish(laserOdometry);
+            pubOdometryDiff.publish(odomDiff);
 
             //publish time
 
@@ -253,6 +253,7 @@ int main(int argc, char **argv)
     ros::Subscriber subSurfLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(surf_pcl, 100, velodyneSurfHandler);
 
     pubLaserOdometry = nh.advertise<nav_msgs::Odometry>("/odom", 100);
+    pubOdometryDiff = nh.advertise<nav_msgs::Odometry>("/odom_diff", 100);
     time_average = nh.advertise<std_msgs::Float64>("/time_average", 100);
 
 

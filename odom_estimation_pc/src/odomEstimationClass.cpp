@@ -25,8 +25,8 @@ void OdomEstimationClass::init(lidar::Lidar lidar_param, double edge_resolution,
 void OdomEstimationClass::initMapWithPoints(const pcl::PointCloud<pcl::PointXYZ>::Ptr& edge_in, const pcl::PointCloud<pcl::PointXYZ>::Ptr& surf_in){
     *laserCloudCornerMap += *edge_in;
     *laserCloudSurfMap += *surf_in;
-    optimization_count=20;
-    //optimization_count=12;
+    optimization_count=4;
+    //optimization_count=20;
 }
 
 
@@ -44,14 +44,34 @@ void OdomEstimationClass::updatePointsToMap(const pcl::PointCloud<pcl::PointXYZ>
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledEdgeCloud(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr downsampledSurfCloud(new pcl::PointCloud<pcl::PointXYZ>());
-    downSamplingToMap(edge_in,downsampledEdgeCloud,surf_in,downsampledSurfCloud);
 
-    if(laserCloudCornerMap->points.size()>10 && laserCloudSurfMap->points.size()>50){
+    if(clear_map){
+        pcl::VoxelGrid<pcl::PointXYZ> vg;
+        vg.setInputCloud(edge_in);
+        vg.setLeafSize(0.5f, 0.5f, 0.5f);
+        vg.filter(*downsampledEdgeCloud);
+        }
+    else{
+        downSamplingToMap(edge_in,downsampledEdgeCloud,surf_in,downsampledSurfCloud);
+    }
+
+    float limits_surf = 50.0;
+    float limits_edge = 10.0;
+    if(clear_map){
+        limits_surf = -1.0;
+    }
+
+    if(laserCloudCornerMap->points.size()>limits_edge && laserCloudSurfMap->points.size()>limits_surf){
         kdtreeEdgeMap->setInputCloud(laserCloudCornerMap);
-        kdtreeSurfMap->setInputCloud(laserCloudSurfMap);
-
+         if(!clear_map){
+            kdtreeSurfMap->setInputCloud(laserCloudSurfMap);
+         }
         for (int iterCount = 0; iterCount < optimization_count; iterCount++){
-            ceres::LossFunction *loss_function = new ceres::HuberLoss(0.25);
+            float loss_value = 0.25;
+            if(clear_map){
+                loss_value = 1.0;
+            }
+            ceres::LossFunction *loss_function = new ceres::HuberLoss(loss_value);
             //ceres::LossFunction *loss_function = new ceres::HuberLoss(1);
             ceres::Problem::Options problem_options;
             ceres::Problem problem(problem_options);
@@ -59,18 +79,22 @@ void OdomEstimationClass::updatePointsToMap(const pcl::PointCloud<pcl::PointXYZ>
             problem.AddParameterBlock(parameters, 7, new PoseSE3Parameterization());
             
             addEdgeCostFactor(downsampledEdgeCloud,laserCloudCornerMap,problem,loss_function);
-            addSurfCostFactor(downsampledSurfCloud,laserCloudSurfMap,problem,loss_function);
-
+            if(!clear_map){
+                addSurfCostFactor(downsampledSurfCloud,laserCloudSurfMap,problem,loss_function);
+            }
             ceres::Solver::Options options;
             options.linear_solver_type = ceres::DENSE_QR;
-            options.max_num_iterations = 10;
-            //options.max_num_iterations = 4;
+            if(clear_map){
+                options.max_num_iterations = 2;
+                options.gradient_check_relative_precision = 1e-4;
+            }
+            else{
+                options.max_num_iterations = 10;
+                options.gradient_check_relative_precision = 1e-8;
+            }
             options.minimizer_progress_to_stdout = false;
             options.check_gradients = false;
-            options.gradient_check_relative_precision = 1e-8;
-            //options.gradient_check_relative_precision = 1e-4;
             ceres::Solver::Summary summary;
-
             ceres::Solve(options, &problem, &summary);
             
         }
@@ -225,14 +249,14 @@ void OdomEstimationClass::addPointsToMap(const pcl::PointCloud<pcl::PointXYZ>::P
 
     if(clear_map){
         if(laserCloudCornerMap->size()>edge_limit){
-           occlude_pcd(laserCloudCornerMap,50,2000,2000);
-           //laserCloudCornerMap->clear();
+          // occlude_pcd(laserCloudCornerMap,50,2000,2000);
+           laserCloudCornerMap->clear();
             
        }
-       //if(laserCloudSurfMap->size()>surf_limit){
+       if(laserCloudSurfMap->size()>surf_limit){
          //  occlude_pcd(laserCloudSurfMap,1,5000,5000);
-           //laserCloudSurfMap->clear();
-       //}
+           laserCloudSurfMap->clear();
+       }
     }
 
     for (int i = 0; i < (int)downsampledEdgeCloud->points.size(); i++)
@@ -242,25 +266,31 @@ void OdomEstimationClass::addPointsToMap(const pcl::PointCloud<pcl::PointXYZ>::P
         laserCloudCornerMap->push_back(point_temp);
     }
 
-    for (int j = 0; j < (int)downsampledSurfCloud->points.size(); j++)
-    {
-        pcl::PointXYZ point_temp;
-        pointAssociateToMap(&downsampledSurfCloud->points[j], &point_temp);
-        laserCloudSurfMap->push_back(point_temp);
+    if(!clear_map){
+        for (int j = 0; j < (int)downsampledSurfCloud->points.size(); j++)
+        {
+            pcl::PointXYZ point_temp;
+            pointAssociateToMap(&downsampledSurfCloud->points[j], &point_temp);
+            laserCloudSurfMap->push_back(point_temp);
 
+        }
     }
 
 
     int conti = laserCloudCornerMap->size();
     int contj = laserCloudSurfMap->size();
     ROS_INFO("Size: Corner: %d, Surf: %d", conti,contj );
-    
-    double x_min = odom.translation().x()-100;
-    double y_min = odom.translation().y()-100;
-    double z_min = odom.translation().z()-100;
-    double x_max = odom.translation().x()+100;
-    double y_max = odom.translation().y()+100;
-    double z_max = odom.translation().z()+100;
+    float cropBox_len = 100.0;
+    if(clear_map){
+        cropBox_len = 10.0;
+    }
+
+    double x_min = odom.translation().x()-cropBox_len;
+    double y_min = odom.translation().y()-cropBox_len;
+    double z_min = odom.translation().z()-cropBox_len;
+    double x_max = odom.translation().x()+cropBox_len;
+    double y_max = odom.translation().y()+cropBox_len;
+    double z_max = odom.translation().z()+cropBox_len;
     
     //ROS_INFO("size : %f,%f,%f,%f,%f,%f", x_min, y_min, z_min,x_max, y_max, z_max);
     cropBoxFilter.setMin(Eigen::Vector4f(x_min, y_min, z_min, 1.0));
@@ -269,13 +299,16 @@ void OdomEstimationClass::addPointsToMap(const pcl::PointCloud<pcl::PointXYZ>::P
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr tmpCorner(new pcl::PointCloud<pcl::PointXYZ>());
     pcl::PointCloud<pcl::PointXYZ>::Ptr tmpSurf(new pcl::PointCloud<pcl::PointXYZ>());
+    if(!clear_map){
     cropBoxFilter.setInputCloud(laserCloudSurfMap);
     cropBoxFilter.filter(*tmpSurf);
+    }
     cropBoxFilter.setInputCloud(laserCloudCornerMap);
     cropBoxFilter.filter(*tmpCorner);
-
-    downSizeFilterSurf.setInputCloud(tmpSurf);
+    if(!clear_map){
+    downSizeFilterSurf.setInputCloud(tmpSurf);    
     downSizeFilterSurf.filter(*laserCloudSurfMap);
+    }
     downSizeFilterEdge.setInputCloud(tmpCorner);
     downSizeFilterEdge.filter(*laserCloudCornerMap);
 }
