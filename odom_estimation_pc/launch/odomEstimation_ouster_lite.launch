@@ -15,7 +15,7 @@
     <param name="/pcl_edge" type="str" value="/pcl_edge" />
     <param name="/pcl_surf" type="str" value="/pcl_surf" />
     <param name="/childframeID" type="str" value="os_sensor" />    
-    <node pkg="odom_estimation_pc" type="odom_estimation_node" name="odom_estimation_node" output="screen"/>
+    <node pkg="odom_estimation_pc" type="odom_estimation_node" name="odom_estimation_node"/>
 
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_lilo" ns="base_link" >
         <param name="/target_frame_name" value="odom" />
