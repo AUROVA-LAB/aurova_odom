@@ -62,7 +62,7 @@ void velodyneEdgeHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 }
 
 bool is_odom_inited = false;
-double total_time =0, edge_limit, surf_limit;
+double total_time =0, cropBox_len, surf_limit;
 int total_frame=0;
 bool clear_map;
 void odom_estimation(){
@@ -95,7 +95,7 @@ void odom_estimation(){
             }else{
                 std::chrono::time_point<std::chrono::system_clock> start, end;
                 start = std::chrono::system_clock::now();
-                odomEstimation.updatePointsToMap(pointcloud_edge_in, pointcloud_surf_in, clear_map, edge_limit , surf_limit);
+                odomEstimation.updatePointsToMap(pointcloud_edge_in, pointcloud_surf_in, clear_map, cropBox_len);
                 end = std::chrono::system_clock::now();
                 std::chrono::duration<float> elapsed_seconds = end - start;
                 total_frame++;
@@ -221,8 +221,7 @@ int main(int argc, char **argv)
     bool validation_angle = false;
 
     clear_map = true;
-    edge_limit = 10000;
-    surf_limit = 10000;
+    cropBox_len = 10000;
 
     nh.getParam("/scan_period", scan_period); 
     nh.getParam("/vertical_angle", vertical_angle); 
@@ -233,8 +232,7 @@ int main(int argc, char **argv)
     nh.getParam("/surf_resolution", surf_resolution);
     nh.getParam("/clear_map", clear_map);
 
-    nh.getParam("/edge_limit", edge_limit);
-    nh.getParam("/surf_limit", surf_limit);
+    nh.getParam("/cropBox_len", cropBox_len);
 
     nh.getParam("/childframeID",childframeID);
     nh.getParam("/pcl_edge",edge_pcl);
