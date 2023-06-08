@@ -10,7 +10,7 @@
     <param name="velodyne_height" type="double" value="-20" />
     <param name="validation_height" type="bool" value="false" />
     <param name="clear_map" type="bool" value="false" />
-    <param name="cropBox_len" type="double" value="50" />
+    <param name="cropBox_len" type="double" value="100" />
     <param name="/pcl_edge" type="str" value="/pcl_edge" />
     <param name="/pcl_surf" type="str" value="/pcl_surf" />
     <param name="/childframeID" type="str" value="os_sensor" />    
