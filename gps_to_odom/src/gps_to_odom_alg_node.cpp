@@ -468,6 +468,22 @@ void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::Con
 
   }
 
+  ///////////////////////////////////////////////////////////////////////////////
+  //// FOR REPRESENTATION PURPO0SES
+  map_orientations_RPY(0) = 0.0;
+  map_orientations_RPY(1) = -1.57;
+  map_orientations_RPY(2) = 0.0;
+
+  // Converting to quarternion to fill the ROS message
+  tf::Quaternion quaternion = tf::createQuaternionFromRPY(map_orientations_RPY(0), map_orientations_RPY(1),
+                                                          map_orientations_RPY(2));
+      // Pass it to the output message
+  this->odom_gps_.pose.pose.orientation.x = quaternion[0];
+  this->odom_gps_.pose.pose.orientation.y = quaternion[1];
+  this->odom_gps_.pose.pose.orientation.z = quaternion[2];
+  this->odom_gps_.pose.pose.orientation.w = quaternion[3];
+  ///////////////////////////////////////////////////////////////////////////////
+
   this->flag_gnss_velocity_received_ = true;
   this->alg_.unlock();
 }
