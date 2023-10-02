@@ -21,3 +21,18 @@ Parameters:
 * ~scan_in_tf (default: false): If this parameter is set to true, the laser transform read from the static robot transformation is published in /tf topic.
 * ~frame_id (default: ""): This parameter is the name of frame to transform if scan_in_tf is true.
 * ~child_id (default: ""): This parameter is the name of child frame to transform if scan_in_tf is true.
+
+**odom_estimation_pc** (**LiLO**->Lite LiDAR Odometry method based on SRI)
+
+This package estimates odometry from a point cloud segmented into edges and surface. The package works in conjunction with [pc2image](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc2image), which converts a point cloud into an SRI range image and filters it to extract the desired features. 
+As input topics are required: 
+* /pcl_edge : Topic by which the edge point cloud is subscribed to.
+* /pcl_surf: Topic to subscribe to the surface point cloud.
+As output topic are:
+*/odom: Topic that has the estimated odometry. 
+
+Parameters:
+* ~/target_frame_name (default: "odom")
+* ~/source_frame_name (default: "base_link")
+* ~/clear_map (default: "false") : This paramater enable the clear map funtion.
+* ~/childframeID (default: ""): This parameter is the name of child frame to transform.
