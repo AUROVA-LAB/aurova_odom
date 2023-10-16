@@ -142,10 +142,10 @@ void odom_estimation(){
             Eigen::Isometry3d odomdiff = (odom_prev.inverse() * odom);
             q_diff = Eigen::Quaterniond(odomdiff.rotation());
             t_diff = odomdiff.translation();
-            Eigen::Isometry3d odom_curr = odom_prev * odomdiff;
-
-            Eigen::Quaterniond q_c = Eigen::Quaterniond(odom_curr.rotation());;
-            Eigen::Vector3d t_c = odom_curr.translation();
+           
+            // Eigen::Isometry3d odom_curr = odom_prev * odomdiff;
+            // Eigen::Quaterniond q_c = Eigen::Quaterniond(odom_curr.rotation());;
+            // Eigen::Vector3d t_c = odom_curr.translation();
 
             odom_prev = odom;
 
