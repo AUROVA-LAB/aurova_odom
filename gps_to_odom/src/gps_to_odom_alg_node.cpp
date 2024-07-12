@@ -43,7 +43,6 @@ GpsToOdomAlgNode::~GpsToOdomAlgNode(void)
 
 void GpsToOdomAlgNode::mainNodeThread(void)
 {
-
   // [fill msg structures]
 
   // [fill srv structure and make request to the server]
@@ -58,13 +57,13 @@ void GpsToOdomAlgNode::mainNodeThread(void)
     this->flag_gnss_position_received_ = false;
     this->flag_gnss_velocity_received_ = false;
   }
+  this->alg_.unlock();
 }
 
 /*  [subscriber callbacks] */
 void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::NavSatFix::ConstPtr &fix_msg)
 {
   this->alg_.lock();
-
   Ellipsoid utm;
   double utm_x;
   double utm_y;
@@ -103,7 +102,6 @@ void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::NavSatFix::ConstPtr
   this->odom_gps_.pose.covariance[14] = fix_msg->position_covariance[8];
 
   this->flag_gnss_position_received_ = true;
-
   this->alg_.unlock();
 }
 
