@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<launch>
+  
+     <!-- STD config -->
+    <rosparam command="load" file="$(find dualquat_loam)/config/config_NTU.yaml" />
+
+    <!-- Hyperparameters -->
+    <param name="edge_resolution" type="double" value="0.5" />
+    <param name="surf_resolution" type="double" value="1.0" />
+    <param name="velodyne_height" type="double" value="-20" />
+    <param name="validation_height" type="bool" value="false" />
+
+    <!-- INPUT Topics for pose estimation -->
+    <param name="/pcl_edge" type="str" value="/pcl_edge" /> 
+    <param name="/pcl_surf" type="str" value="/pcl_surf" />
+    <param name="/pcTopic" type="str" value="/os1_cloud_node1/points" />
+
+    <!-- Configuration for pose estimation -->
+    <param name="clear_map" type="bool" value="false" />
+    <param name="edge_limit" type="double" value="150" />
+    <param name="surf_limit" type="double" value="150" />
+    <!-- <param name="/pcl_edge" type="str" value="/laser_cloud_edge" /> 
+    <param name="/pcl_surf" type="str" value="/laser_cloud_surf" /> -->
+    <param name="/childframeID" type="str" value="sensor1/os_sensor" /> 
+    <param name="cropBox_len" type="double" value="800" /> 
+    <param name="cont_opti" type="double" value="3.0" />
+
+    <!-- <node pkg="dualquat_loam" type="laser_mapping" name="laser_mapping" >
+    <param name="scan_period" type="double" value="0.1" /> 
+    </node>  -->
+    <param name="cont_for_map" type="double" value="1.0" /> 
+
+
+    <!-- +++++++++++++++deprecated function ++++++++++++++++-->
+    <!-- <param name="save_data" type="bool" value="true" />    
+    <param name="/path_odom"                 type="str" value="/home/ws/src/resultados_dualquat_loam/NTU_eee_03.txt" />  -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++-->
+
+    <node pkg="tf" type="static_transform_publisher" name="word2odom_tf"  args="0 0 0 0 0 0 /map /odom 10" />
+
+    <node pkg="dualquat_loam" type="dq_pose_estimation_node" name="dq_pose_estimation_node" output="screen"/>
+  
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_loDQ" ns="dualquat_odom" >
+        <param name="/target_frame_name" value="odom" />
+        <param name="/source_frame_name" value="sensor1/os_sensor" />
+        <param name="/trajectory_update_rate"  value="10.0" />
+        <param name="/trajectory_publish_rate" value="10.0" />
+    </node> 
+
+    <!-- RViz -->
+    <arg name="rviz" default="false"/>
+    <node pkg="rviz" type="rviz" name="dualquat_loam_rviz" args="-d $(find dualquat_loam)/rviz/ntu_dataset.rviz" if="$(arg rviz)"/>
+
+</launch>
+
+

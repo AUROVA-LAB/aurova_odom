@@ -1,0 +1,37 @@
+# pre process
+ds_size: 0.1
+maximum_corner_num: 20
+
+# key points
+plane_detection_thre: 0.01
+plane_merge_normal_thre: 0.2
+voxel_size: 2.0
+voxel_init_num: 10
+proj_image_resolution: 0.5
+proj_dis_min: 0
+proj_dis_max: 5
+corner_thre: 10
+
+# std descriptor
+descriptor_near_num: 5
+descriptor_min_len: 1
+descriptor_max_len: 5000
+non_max_suppression_radius: 1.0
+std_side_resolution: 0.2
+
+# candidate search
+skip_near_num: 5
+candidate_num: 5
+sub_frame_num: 1
+vertex_diff_threshold: 0.5
+rough_dis_threshold: 0.01
+normal_threshold: 0.2
+dis_threshold: 0.5
+icp_threshold: 0.4
+
+# window size
+max_window_size: 10.0
+# for Kitti max_window_size: 10.0
+# for BLUE max_window_size: 2.0
+kdtree_threshold: 10.0
+epsilon: 0.001

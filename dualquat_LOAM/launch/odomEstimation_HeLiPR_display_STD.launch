@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<launch>
+
+    <!-- STD config -->
+    <rosparam command="load" file="$(find dualquat_loam)/config/config_Heli.yaml" />
+
+    <!-- Hyperparameters -->
+    <param name="edge_resolution" type="double" value="0.5" />
+    <param name="surf_resolution" type="double" value="1.0" />
+    <param name="velodyne_height" type="double" value="-20" />
+    <param name="validation_height" type="bool" value="false" />
+
+    <!-- INPUT Topics for pose estimation -->
+    <param name="/pcTopic" type="str" value="/ouster/points" />
+    
+    <param name="clear_map" type="bool" value="false" />
+    <param name="edge_limit" type="double" value="150" />
+    <param name="surf_limit" type="double" value="150" />
+    <param name="/childframeID" type="str" value="ouster" />
+    <param name="cropBox_len" type="double" value="800" />
+    <param name="cont_opti" type="double" value="1.0" />
+
+    <param name="cont_for_map" type="double" value="1.0" />  
+    
+    <!-- +++++++++++++++deprecated function ++++++++++++++++-->
+    <!-- <param name="save_data" type="bool" value="true" />    
+    <param name="/path_odom"                 type="str" value="/home/ws/src/resultados_dualquat_loam/data.txt" />  -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++-->
+
+    <!-- Transform publisher -->
+    <node pkg="tf" type="static_transform_publisher" name="word2odom_tf"  args="0 0 0 0 0 0 /map /odom 10" />
+
+    <!-- Pose estimation node -->
+    <node pkg="dualquat_loam" type="dq_pose_estimation_node" name="dq_pose_estimation_node" output="screen"/>
+
+    <!-- To show STD in the pose estimation -->
+    <node pkg="dualquat_loam" type="std_extractor" name="std_show" output="screen" />
+
+    <!-- Trajectory server -->
+    <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_loDQ" ns="dualquat_odom">
+        <param name="/target_frame_name" value="odom" />
+        <param name="/source_frame_name" value="ouster" />
+        <param name="/trajectory_update_rate" value="10.0" />
+        <param name="/trajectory_publish_rate" value="10.0" />
+    </node>
+
+    <!-- RViz -->
+    <arg name="rviz" default="false"/>
+    <node pkg="rviz" type="rviz" name="dualquat_loam_rviz" args="-d $(find dualquat_loam)/rviz/heliPR_displayed_std.rviz" if="$(arg rviz)"/>
+
+</launch>
