@@ -21,7 +21,8 @@ An overview of our LiDAR-Only odometry method can be found in [DualQuat_LOAM](ht
 
 ```bash
 cd ~/catkin_ws/src
-git clone 
+git clone https://github.com/AUROVA-LAB/aurova_odom.git
+
 ```
 
 ### 2. Build the package
