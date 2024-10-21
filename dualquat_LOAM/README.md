@@ -47,12 +47,14 @@ You will need at least two terminals.
 In one terminal, run the odometry estimation node:
 
 ```bash
+source devel/setup.bash
 roslaunch dualquat_loam odomEstimation_KITTI_display_STD.launch
 ```
 
 In the second terminal, run the feature extraction:
 
 ```bash
+source devel/setup.bash
 roslaunch pc_feature_extraction Kitti_extraction.launch
 ```
 
