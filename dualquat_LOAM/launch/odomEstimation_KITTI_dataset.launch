@@ -2,7 +2,7 @@
 <launch>
   
      <!-- STD config -->
-    <rosparam command="load" file="$(find dualquat_loam)/config/config_frame_frame.yaml" />
+    <rosparam command="load" file="$(find dualquat_loam)/config/config_Kitti.yaml" />
 
     <!-- Hyperparameters -->
     <param name="edge_resolution" type="double" value="0.5" />
