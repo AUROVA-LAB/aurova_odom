@@ -13,8 +13,27 @@ An overview of our LiDAR-Only odometry method can be found in [DualQuat_LOAM](ht
 - **PCL (Point Cloud Library)**
 - **Eigen** for linear algebra operations
 - **[Ceres Solver](http://ceres-solver.org/)** (tested with 2.2.0 library version)
+- **[Nanoflann library](https://github.com/jlblancoc/nanoflann)**
+
+    ### Nanoflann install Instructions:
+    ```bash
+    git clone https://github.com/jlblancoc/nanoflann.git ~/your-directory/nanoflann
+    cd ~/your-directory/nanoflann
+    mkdir build 
+    cd build
+    cmake .. 
+    sudo make install
+    ```
+        
 - Point cloud preprocessing node ([aurova_preprocessed](https://github.com/AUROVA-LAB/aurova_preprocessed)). More specifically [pc_feature](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc_features) node.
 
+And also it is necessary the dependencies of the [STD]((https://github.com/hku-mars/STD)) descriptors:
+
+```bash
+sudo add-apt-repository ppa:borglab/gtsam-release-4.0
+sudo apt update 
+sudo apt install -y libgtsam-dev libgtsam-unstable-dev
+```
 ## Installation
 
 ### 1. Clone the repository
@@ -53,6 +72,64 @@ roslaunch dualquat_loam odomEstimation_KITTI_dataset.launch
 ```
 Make sure the parameters and topics are correctly set according to your LiDAR sensor and point cloud input.
 
+# Docker is all you need
+
+You can also use only Docker to run DualQuat-LOAM. To do so, follow these simple steps.
+
+### Clone the repository
+
+```bash
+git clone https://github.com/AUROVA-LAB/aurova_odom.git
+```
+
+### Build the Docker image
+
+```bash
+cd /path/to/your/directory/aurova_odom/dualquat_LOAM/
+sudo docker build -t dualquat_loam .
+```
+
+### Run the container
+
+```bash
+sudo docker run --shm-size=1g \
+--privileged \
+--ulimit memlock=-1 \
+--ulimit stack=67108864 \
+--rm -it --net=host -e DISPLAY=:0 \
+--user=root \
+-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
+--name dualquatloam_container \
+--gpus all \
+--cpuset-cpus=0-3 \
+dualquat_loam
+```
+
+### Inside the container
+
+You will need at least two terminals.
+
+In one terminal, run the odometry estimation node:
+
+```bash
+roslaunch dualquat_loam odomEstimation_KITTI_display_STD.launch
+```
+
+In the second terminal, run the feature extraction:
+
+```bash
+roslaunch pc_feature_extraction Kitti_extraction.launch
+```
+
+Now you can test the pose estimation with our dualquat-loam using the [KITTI](https://www.cvlibs.net/datasets/kitti/raw_data.php) dataset.
+
+### Note (outside the container):
+
+If you need to display any graphical interface started inside the container, first run this outside the container:
+
+```bash
+xhost +local:
+```
 ## Acknowledgements
 
 We would like to acknowledge the following repositories for their contributions to this project:
@@ -60,3 +137,4 @@ We would like to acknowledge the following repositories for their contributions 
 - [F-LOAM](https://github.com/wh200720041/floam)
 - [STD Descriptors](https://github.com/hku-mars/STD)
 - [DQ Robotics](https://github.com/dqrobotics)
+- [Nanoflann](https://github.com/jlblancoc/nanoflann)
