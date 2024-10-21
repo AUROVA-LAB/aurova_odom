@@ -13,8 +13,27 @@ An overview of our LiDAR-Only odometry method can be found in [DualQuat_LOAM](ht
 - **PCL (Point Cloud Library)**
 - **Eigen** for linear algebra operations
 - **[Ceres Solver](http://ceres-solver.org/)** (tested with 2.2.0 library version)
+- **[Nanoflann library](https://github.com/jlblancoc/nanoflann)**
+
+    ### Nanoflann install Instructions:
+    ```bash
+    git clone https://github.com/jlblancoc/nanoflann.git ~/your-directory/nanoflann
+    cd ~/your-directory/nanoflann
+    mkdir build 
+    cd build
+    cmake .. 
+    sudo make install
+    ```
+        
 - Point cloud preprocessing node ([aurova_preprocessed](https://github.com/AUROVA-LAB/aurova_preprocessed)). More specifically [pc_feature](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc_features) node.
 
+And also it is necessary the dependencies of the [STD]((https://github.com/hku-mars/STD)) descriptors:
+
+```bash
+sudo add-apt-repository ppa:borglab/gtsam-release-4.0
+sudo apt update 
+sudo apt install -y libgtsam-dev libgtsam-unstable-dev
+```
 ## Installation
 
 ### 1. Clone the repository
@@ -60,3 +79,4 @@ We would like to acknowledge the following repositories for their contributions 
 - [F-LOAM](https://github.com/wh200720041/floam)
 - [STD Descriptors](https://github.com/hku-mars/STD)
 - [DQ Robotics](https://github.com/dqrobotics)
+- [Nanoflann Library](https://github.com/jlblancoc/nanoflann)
