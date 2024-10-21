@@ -7,72 +7,7 @@ This method introduces a novel approach for LiDAR odometry estimation, fully par
 
 An overview of our LiDAR-Only odometry method can be found in [DualQuat_LOAM](https://aurova-projects.github.io/dualquat_loam/) of AUROVA PROJECTS
 
-## Requirements
-
-- **ROS 1** (tested in ROS-Noetic)
-- **PCL (Point Cloud Library)**
-- **Eigen** for linear algebra operations
-- **[Ceres Solver](http://ceres-solver.org/)** (tested with 2.2.0 library version)
-- **[Nanoflann library](https://github.com/jlblancoc/nanoflann)**
-
-    ### Nanoflann install Instructions:
-    ```bash
-    git clone https://github.com/jlblancoc/nanoflann.git ~/your-directory/nanoflann
-    cd ~/your-directory/nanoflann
-    mkdir build 
-    cd build
-    cmake .. 
-    sudo make install
-    ```
-        
-- Point cloud preprocessing node ([aurova_preprocessed](https://github.com/AUROVA-LAB/aurova_preprocessed)). More specifically [pc_feature](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc_features) node.
-
-And also it is necessary the dependencies of the [STD]((https://github.com/hku-mars/STD)) descriptors:
-
-```bash
-sudo add-apt-repository ppa:borglab/gtsam-release-4.0
-sudo apt update 
-sudo apt install -y libgtsam-dev libgtsam-unstable-dev
-```
-## Installation
-
-### 1. Clone the repository
-
-```bash
-cd ~/catkin_ws/src
-git clone https://github.com/AUROVA-LAB/aurova_odom.git
-
-```
-
-### 2. Build the package
-
-Navigate to your catkin workspace and build the package:
-
-```bash
-cd ~/catkin_ws
-catkin_make --only-pkg-with-deps dualquat_loam
-```
-
-## Usage
-
-### 1. Launch the pc_feature node
-
-We have separated the point cloud preprocessing for edge and surface feature extraction, allowing the user to implement this package with their own code or use the one provided in [pc_feature](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc_features) node.
-
-```bash
-roslaunch pc_feature_extraction Kitti_extraction.launch
-```
-
-### 2. Launch the odometry node
-
-The package has been tested with the [KITTI](https://www.cvlibs.net/datasets/kitti/raw_data.php) (00 - 010 sequences), [HeliPR](https://sites.google.com/view/heliprdataset) (Roundabout02, Bridge02, Town03), [conSLAM](https://github.com/mac137/ConSLAM/tree/main) (sequence02) and [NTU-VIRAL](https://ntu-aris.github.io/ntu_viral_dataset/)(eee03) datasets.
-
-```bash
-roslaunch dualquat_loam odomEstimation_KITTI_dataset.launch
-```
-Make sure the parameters and topics are correctly set according to your LiDAR sensor and point cloud input.
-
-# Docker is all you need
+## Docker is all you need
 
 You can also use only Docker to run DualQuat-LOAM. To do so, follow these simple steps.
 
@@ -130,6 +65,72 @@ If you need to display any graphical interface started inside the container, fir
 ```bash
 xhost +local:
 ```
+
+## Requirements (without Docker)
+
+- **ROS 1** (tested in ROS-Noetic)
+- **PCL (Point Cloud Library)**
+- **Eigen** for linear algebra operations
+- **[Ceres Solver](http://ceres-solver.org/)** (tested with 2.2.0 library version)
+- **[Nanoflann library](https://github.com/jlblancoc/nanoflann)**
+
+    ### Nanoflann install Instructions:
+    ```bash
+    git clone https://github.com/jlblancoc/nanoflann.git ~/your-directory/nanoflann
+    cd ~/your-directory/nanoflann
+    mkdir build 
+    cd build
+    cmake .. 
+    sudo make install
+    ```
+        
+- Point cloud preprocessing node ([aurova_preprocessed](https://github.com/AUROVA-LAB/aurova_preprocessed)). More specifically [pc_feature](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc_features) node.
+
+And also it is necessary the dependencies of the [STD]((https://github.com/hku-mars/STD)) descriptors:
+
+```bash
+sudo add-apt-repository ppa:borglab/gtsam-release-4.0
+sudo apt update 
+sudo apt install -y libgtsam-dev libgtsam-unstable-dev
+```
+## Installation (without Docker)
+
+### 1. Clone the repository
+
+```bash
+cd ~/catkin_ws/src
+git clone https://github.com/AUROVA-LAB/aurova_odom.git
+
+```
+
+### 2. Build the package
+
+Navigate to your catkin workspace and build the package:
+
+```bash
+cd ~/catkin_ws
+catkin_make --only-pkg-with-deps dualquat_loam
+```
+
+## Usage
+
+### 1. Launch the pc_feature node
+
+We have separated the point cloud preprocessing for edge and surface feature extraction, allowing the user to implement this package with their own code or use the one provided in [pc_feature](https://github.com/AUROVA-LAB/aurova_preprocessed/tree/master/pc_features) node.
+
+```bash
+roslaunch pc_feature_extraction Kitti_extraction.launch
+```
+
+### 2. Launch the odometry node
+
+The package has been tested with the [KITTI](https://www.cvlibs.net/datasets/kitti/raw_data.php) (00 - 010 sequences), [HeliPR](https://sites.google.com/view/heliprdataset) (Roundabout02, Bridge02, Town03), [conSLAM](https://github.com/mac137/ConSLAM/tree/main) (sequence02) and [NTU-VIRAL](https://ntu-aris.github.io/ntu_viral_dataset/)(eee03) datasets.
+
+```bash
+roslaunch dualquat_loam odomEstimation_KITTI_dataset.launch
+```
+Make sure the parameters and topics are correctly set according to your LiDAR sensor and point cloud input.
+
 ## Acknowledgements
 
 We would like to acknowledge the following repositories for their contributions to this project:
