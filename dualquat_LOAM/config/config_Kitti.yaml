@@ -1,5 +1,5 @@
 # pre process
-ds_size: 0.5
+ds_size: 0.2
 maximum_corner_num: 10
 
 # key points
