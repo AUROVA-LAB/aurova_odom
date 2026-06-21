@@ -141,3 +141,25 @@ We would like to acknowledge the following repositories for their contributions 
 - [STD Descriptors](https://github.com/hku-mars/STD)
 - [DQ Robotics](https://github.com/dqrobotics)
 - [Nanoflann](https://github.com/jlblancoc/nanoflann)
+
+## Citation
+
+```
+@article{VELASCO_DualQuat_loam_2025,
+                title = {DualQuat-LOAM: LiDAR odometry and mapping parameterized on dual quaternions},
+                author = {Edison P. Velasco-Sánchez and Luis F. Recalde and Guanrui Li and Francisco A. Candelas-Herias and Santiago T. Puente-Mendez and Fernando Torres-Medina}
+                journal = {Robotics and Autonomous Systems},
+                volume = {191},
+                pages = {105009},
+                year = {2025},
+                issn = {0921-8890},
+                doi = {https://doi.org/10.1016/j.robot.2025.105009},
+                url = {https://www.sciencedirect.com/science/article/pii/S0921889025000958},
+                publisher={Elsevier}
+                }
+```
+
+##  License
+
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0) and is intended for non-commercial academic use. If you are interested in using the dataset for commercial purposes please contact us via [email](mailto:edison.velasco@ua.es).  
+
