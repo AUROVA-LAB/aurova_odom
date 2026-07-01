@@ -36,3 +36,6 @@ Parameters:
 * ~/source_frame_name (default: "base_link")
 * ~/clear_map (default: "false") : This paramater enable the clear map funtion.
 * ~/childframeID (default: ""): This parameter is the name of child frame to transform.
+
+## ✨ License
+This work is licensed under a [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](http://creativecommons.org/licenses/by-nc-sa/4.0) and is intended for non-commercial academic use. If you are interested in using the software for commercial purposes, don't hesitate to get in touch with us via [email](mailto:miguelangel.munoz@ua.es).
