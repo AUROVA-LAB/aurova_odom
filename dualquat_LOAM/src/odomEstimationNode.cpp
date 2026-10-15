@@ -10,19 +10,19 @@
 #include <chrono>
 
 //ros lib
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <std_msgs/Float64.h>
-#include <nav_msgs/Odometry.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <tf/transform_datatypes.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
-#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/msg/pose_array.hpp>
 
 #include <tf2_ros/transform_listener.h>
-#include <geometry_msgs/TransformStamped.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 
-#include <tf2_msgs/TFMessage.h>
+#include <tf2_msgs/msg/tfmessage.hpp>
 
 //pcl lib
 #include <pcl_conversions/pcl_conversions.h>
@@ -44,9 +44,9 @@ STDescManager *std_manager;
 
 OdomEstimationClass odomEstimation;
 std::mutex mutex_lock;
-std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudEdgeBuf;
-std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudSurfBuf;
-std::queue<geometry_msgs::PoseArrayConstPtr> stdPoseBuf;
+std::queue<sensor_msgs::msg::PointCloud2ConstPtr> pointCloudEdgeBuf;
+std::queue<sensor_msgs::msg::PointCloud2ConstPtr> pointCloudSurfBuf;
+std::queue<geometry_msgs::msg::PoseArrayConstPtr> stdPoseBuf;
 
 std::string childframeID = "os_sesnor";
 std::string edge_pcl = "/pcl_edge";
@@ -56,28 +56,29 @@ std::string stdMap   = "/std_map_poses";
 std::string pcTopic   = "/velodyne_points";
 //std::string path_odom =  "/home/ws/src/resultados_dualquat_loam/00.txt";
 
-ros::Publisher pubLaserOdometry;
-ros::Publisher pubOdometryDiff;
+rclcpp::Publisher<nav_msgs::msg::Odometry> pubLaserOdometry;
+rclcpp::Publisher<nav_msgs::msg::Odometry> pubOdometryDiff;
 
 /// STD publishers
-ros::Publisher pubSTD ;
-ros::Publisher cloud_pub;
+rclcpp::Publisher<visualization_msgs::msg::MarkerArray> pubSTD ;
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2> cloud_pub;
 
-// ros::Publisher std_pub_Map;
-// ros::Publisher std_pub_Cur;
+// rclcpp::Publisher std_pub_Map;
+// rclcpp::Publisher std_pub_Cur;
 
 
-ros::Publisher time_average;
+rclcpp::Publisher<std_msgs::msg::Float64> time_average;
+std::shared_ptr<tf2_ros::TransformBroadcaster> br{nullptr};
 bool save_data = true;
 
 
-void velodyneSurfHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
+void velodyneSurfHandler(const sensor_msgs::msg::PointCloud2SharedPtr laserCloudMsg)
 {
     mutex_lock.lock();
     pointCloudSurfBuf.push(laserCloudMsg);
     mutex_lock.unlock();
 }
-void velodyneEdgeHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
+void velodyneEdgeHandler(const sensor_msgs::msg::PointCloud2SharedPtr laserCloudMsg)
 {
 
     mutex_lock.lock();
@@ -86,11 +87,11 @@ void velodyneEdgeHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
 }
   
 // read the pointcloud to extract STD descriptor
-std::queue<sensor_msgs::PointCloud2::ConstPtr> laser_buffer;
-sensor_msgs::PointCloud2::ConstPtr msg_point;
+std::queue<sensor_msgs::msg::PointCloud2::ConstPtr> laser_buffer;
+sensor_msgs::msg::PointCloud2::ConstPtr msg_point;
 std::mutex laser_mtx;
 
-void laserCloudHandler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
+void laserCloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     std::unique_lock<std::mutex> lock(laser_mtx);
     msg_point = msg;
     laser_buffer.push(msg);
@@ -101,7 +102,7 @@ bool readPC(pcSTD::Ptr &cloud) {
         return false;
 
     auto laser_msg = laser_buffer.front();
-    //double laser_timestamp = laser_msg->header.stamp.toSec();
+    //double laser_timestamp = laser_msg->header.stamp.seconds();
     pcl::fromROSMsg(*laser_msg, *cloud);
     std::unique_lock<std::mutex> l_lock(laser_mtx);
     laser_buffer.pop();
@@ -116,11 +117,11 @@ int cont_map = 0;
 
 void STD_matching(std::vector<STDesc>& stds_curr_body, std::vector<STDesc>& stds_curr_world, std::deque<STDesc>&  std_local_map,
                   std::vector<STDesc>& stdC_pair, std::vector<STDesc>& stdM_pair,
-                  std::unique_ptr<nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXf>>& index, ros::Publisher pubSTD){
+                  std::unique_ptr<nanoflann::KDTreeEigenMatrixAdaptor<Eigen::MatrixXf>>& index, rclcpp::Publisher pubSTD){
 
     int cont_desc_pairs= 0;
     //int id = 0;
-    visualization_msgs::MarkerArray marker_array;
+    visualization_msgs::msg::MarkerArray marker_array;
 
     for (size_t i = 0; i < stds_curr_world.size(); ++i) {
 
@@ -180,12 +181,12 @@ void STD_matching(std::vector<STDesc>& stds_curr_body, std::vector<STDesc>& stds
     std::cout<<"Number of STD matchs: "<<cont_desc_pairs<<std::endl;
 
     // Publish the arrows in rviz
-    pubSTD.publish(marker_array);
-    visualization_msgs::Marker delete_marker_curr;
-    delete_marker_curr.action = visualization_msgs::Marker::DELETEALL;
+    pubSTD->publish(marker_array);
+    visualization_msgs::msg::Marker delete_marker_curr;
+    delete_marker_curr.action = visualization_msgs::msg::Marker::DELETEALL;
     marker_array.markers.clear();
     marker_array.markers.push_back(delete_marker_curr);
-    pubSTD.publish(marker_array);
+    pubSTD->publish(marker_array);
 }
 
 
@@ -256,7 +257,7 @@ void odom_estimation(){
             pcl::fromROSMsg(*pointCloudEdgeBuf.front(), *pointcloud_edge_in);
             pcl::fromROSMsg(*pointCloudSurfBuf.front(), *pointcloud_surf_in);
 
-            ros::Time pointcloud_time = (pointCloudSurfBuf.front())->header.stamp;
+            rclcpp::Time pointcloud_time = (pointCloudSurfBuf.front())->header.stamp;
             pointCloudEdgeBuf.pop();
             pointCloudSurfBuf.pop();
 
@@ -272,7 +273,7 @@ void odom_estimation(){
             if(is_odom_inited == false){
                 odomEstimation.initMapWithPoints(pointcloud_edge_in, pointcloud_surf_in);
                 is_odom_inited = true;
-                ROS_INFO("odom inited");
+                RCLCPP_INFO(nh->get_logger(),"odom inited");
 
             }else{
 
@@ -343,18 +344,24 @@ void odom_estimation(){
             // ///////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////
 
-            static tf::TransformBroadcaster br;
-            tf::Transform transform;
+            tf2::Transform transform;
             transform.setOrigin( tf::Vector3(t_current.x(), t_current.y(), t_current.z()) );
-            tf::Quaternion q(q_current.x(),q_current.y(),q_current.z(),q_current.w());
+            tf2::Quaternion q(q_current.x(),q_current.y(),q_current.z(),q_current.w());
             transform.setRotation(q);
-            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", childframeID));      
+
+            geometry_msgs::msg::TransformStamped ts;
+            ts.header.stamp = nh->now();
+            ts.header.frame_id = "odom";
+            ts.child_frame_id = childframeID;
+            ts.transform = tf2::toMsg(transform);
+
+            br->sendTransform(ts);      
 
             // //// TODO: FROM URDF!!!!!!!!
             // transform.setOrigin( tf::Vector3(-0.55, 0.0, -0.645) );
-            // tf::Quaternion q2(0.0, 0.0, 0.0, 1.0);
+            // tf2::Quaternion q2(0.0, 0.0, 0.0, 1.0);
             // transform.setRotation(q2);
-            // br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), childframeID, "base_link"));        
+            // br->sendTransform(geometry_msgs::msg::TransformStamped(transform, this->now(), childframeID, "base_link"));        
             
             odom.linear() = q_current.toRotationMatrix();
             odom.translation() = t_current;
@@ -399,7 +406,7 @@ void odom_estimation(){
             float time_temp = elapsed_seconds.count() * 1000.0;
             total_time+=time_temp;
             time_delay = total_time/total_frame;
-            ROS_INFO("average odom estimation time %f mS", time_delay);
+            RCLCPP_INFO(nh->get_logger(),"average odom estimation time %f mS", time_delay);
             time_delay = time_delay/1000.0;
 
             //////////////////////////////////////////////////////////////////////////////
@@ -411,7 +418,7 @@ void odom_estimation(){
             //////////////////////////////////////////////////////////////////////////////
              
             // publish odometry
-            nav_msgs::Odometry laserOdometry;
+            nav_msgs::msg::Odometry laserOdometry;
             laserOdometry.header.frame_id = "odom";
             laserOdometry.child_frame_id = childframeID;
             laserOdometry.header.stamp = pointcloud_time;
@@ -423,7 +430,7 @@ void odom_estimation(){
             laserOdometry.pose.pose.position.y = t_current.y();
             laserOdometry.pose.pose.position.z = t_current.z();
 
-            nav_msgs::Odometry odomDiff;
+            nav_msgs::msg::Odometry odomDiff;
             odomDiff.header.frame_id = "odom";
             odomDiff.child_frame_id = childframeID;
             odomDiff.header.stamp = pointcloud_time;
@@ -450,24 +457,24 @@ void odom_estimation(){
             }
             //////////////////////////////////////////////////////////////
 
-            pubLaserOdometry.publish(laserOdometry);
-            pubOdometryDiff.publish(odomDiff);
+            pubLaserOdometry->publish(laserOdometry);
+            pubOdometryDiff->publish(odomDiff);
 
             //publish time
 
-            std_msgs::Float64 time_msg;
+            std_msgs::msg::Float64 time_msg;
             time_msg.data = time_delay*1000.0;
-            time_average.publish(time_msg);
+            time_average->publish(time_msg);
 
             // publish map:
-            sensor_msgs::PointCloud2 output_cloud;
+            sensor_msgs::msg::PointCloud2 output_cloud;
             pcl::toROSMsg(*current_cloud_world, output_cloud);
             output_cloud.header.frame_id = "map";  
 
             
             if(cont>cont_map){
                 cont = 0;
-                cloud_pub.publish(output_cloud);
+                cloud_pub->publish(output_cloud);
             }
             cont++;
          }
@@ -481,8 +488,9 @@ void odom_estimation(){
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "main");
-    ros::NodeHandle nh;
+    rclcpp::init(argc, argv);
+    nh = std::make_shared<rclcpp::Node>("Dualquat_odom");
+
 
     /////////////// Read confing of STD
     read_parameters(nh, config_setting);
@@ -497,38 +505,53 @@ int main(int argc, char **argv)
     cropBox_len = 10000;
     cont_opti =  2; // 2 for robot Blue, 1 for KITTI
 
-    nh.getParam("/max_dis", max_dis);
-    nh.getParam("/min_dis", min_dis);
-    nh.getParam("/edge_resolution", edge_resolution);
-    nh.getParam("/surf_resolution", surf_resolution); 
-    nh.getParam("/clear_map", clear_map);
-    nh.getParam("/save_data", save_data);    
-    nh.getParam("/cropBox_len", cropBox_len);
-    nh.getParam("/cont_opti", cont_opti);    
-    nh.getParam("/childframeID",childframeID);
-    nh.getParam("/pcl_edge",edge_pcl);
-    nh.getParam("/pcl_surf",surf_pcl);
-    nh.getParam("/pcTopic",pcTopic);        
-   // nh.getParam("/path_odom",path_odom);    
-    nh.getParam("/cont_for_map",cont_map);
-    nh.getParam("/voxel_cloud_world",voxel_cloud_world);    
+    nh->declare_parameter("max_dis", max_dis);
+    nh->get_parameter("max_dis", max_dis);
+    nh->declare_parameter("min_dis", min_dis);
+    nh->get_parameter("min_dis", min_dis);
+    nh->declare_parameter("edge_resolution", edge_resolution);
+    nh->get_parameter("edge_resolution", edge_resolution);
+    nh->declare_parameter("surf_resolution", surf_resolution);
+    nh->get_parameter("surf_resolution", surf_resolution); 
+    nh->declare_parameter("clear_map", clear_map);
+    nh->get_parameter("clear_map", clear_map);
+    nh->declare_parameter("save_data", save_data);
+    nh->get_parameter("save_data", save_data);    
+    nh->declare_parameter("cropBox_len", cropBox_len);
+    nh->get_parameter("cropBox_len", cropBox_len);
+    nh->declare_parameter("cont_opti", cont_opti);
+    nh->get_parameter("cont_opti", cont_opti);    
+    nh->declare_parameter("childframeID", childframeID);
+    nh->get_parameter("childframeID",childframeID);
+    nh->declare_parameter("pcl_edge", edge_pcl);
+    nh->get_parameter("pcl_edge",edge_pcl);
+    nh->declare_parameter("pcl_surf", surf_pcl);
+    nh->get_parameter("pcl_surf",surf_pcl);
+    nh->declare_parameter("pcTopic", pcTopic);
+    nh->get_parameter("pcTopic",pcTopic);        
+    // nh->declare_parameter("path_odom");
+    // nh->get_parameter("path_odom",path_odom);    
+    nh->declare_parameter("cont_for_map", cont_map);
+    nh->get_parameter("cont_for_map",cont_map);
+    nh->declare_parameter("voxel_cloud_world", voxel_cloud_world);
+    nh->get_parameter("voxel_cloud_world",voxel_cloud_world);   
 
    
     odomEstimation.init(edge_resolution, surf_resolution);
     
-    ros::Subscriber subEdgeLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(edge_pcl, 100, velodyneEdgeHandler);
-    ros::Subscriber subSurfLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(surf_pcl, 100, velodyneSurfHandler);
-    ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pcTopic, 100, laserCloudHandler);
+    rclcpp::Subscriber subEdgeLaserCloud = nh.create_subscription<sensor_msgs::msg::PointCloud2>(edge_pcl, 100,std::bind(& velodyneEdgeHandler, std::placeholders::_1));
+    rclcpp::Subscriber subSurfLaserCloud = nh.create_subscription<sensor_msgs::msg::PointCloud2>(surf_pcl, 100,std::bind(& velodyneSurfHandler, std::placeholders::_1));
+    rclcpp::Subscriber subLaserCloud = nh.create_subscription<sensor_msgs::msg::PointCloud2>(pcTopic, 100,std::bind(& laserCloudHandler, std::placeholders::_1));
 
-    pubLaserOdometry = nh.advertise<nav_msgs::Odometry>("/odom_dq", 100);
-    pubOdometryDiff = nh.advertise<nav_msgs::Odometry>("/odom_diff", 100);
-    time_average = nh.advertise<std_msgs::Float64>("/time_average", 100);
-    pubSTD = nh.advertise<visualization_msgs::MarkerArray>("pair_std", 10);
-    cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("output_cloud", 10);
-
+    pubLaserOdometry = nh.create_publisher<nav_msgs::msg::Odometry>("/odom_dq", 100);
+    pubOdometryDiff = nh.create_publisher<nav_msgs::msg::Odometry>("/odom_diff", 100);
+    time_average = nh.create_publisher<std_msgs::msg::Float64>("/time_average", 100);
+    pubSTD = nh.create_publisher<visualization_msgs::msg::MarkerArray>("pair_std", 10);
+    cloud_pub = nh.create_publisher<sensor_msgs::msg::PointCloud2>("output_cloud", 10);
+    br = std::make_unique<tf2_ros::TransformBroadcaster>(nh);
     std::thread odom_estimation_process{odom_estimation};
 
-    ros::spin();
+    rclcpp::spin(nh);
 
     return 0;
 }

@@ -256,7 +256,7 @@ void OdomEstimationClass::addPointsToMap(const pcl::PointCloud<pcl::PointXYZ>::P
 
     int conti = laserCloudCornerMap->size();
     int contj = laserCloudSurfMap->size();
-    ROS_INFO("Size: Corner: %d, Surf: %d", conti,contj );
+    std::cout << "Size: Corner: " << conti << ", Surf: " << contj << std::endl;
 
     double x_min = odom.translation().x()-cropBox_len;
     double y_min = odom.translation().y()-cropBox_len;

@@ -8,8 +8,8 @@
 #include <thread>
 #include <vector>
 #include <iostream>
-#include <visualization_msgs/MarkerArray.h>
-#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 // PCL
 #include <pcl/common/transforms.h>
@@ -25,11 +25,11 @@
 
 
 // ROS
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include "ros/init.h"
-#include <sensor_msgs/PointCloud2.h>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
 
 
 // Time
@@ -46,19 +46,19 @@ std::string pcTopic   = "/velodyne_points";
 
 bool init_std = true;
 
-std::queue<sensor_msgs::PointCloud2::ConstPtr> laser_buffer;
-std::queue<nav_msgs::Odometry::ConstPtr> odom_buffer;
+std::queue<sensor_msgs::msg::PointCloud2::SharedPtr> laser_buffer;
+std::queue<nav_msgs::msg::Odometry::SharedPtr> odom_buffer;
 
-sensor_msgs::PointCloud2::ConstPtr msg_point;
+sensor_msgs::msg::PointCloud2::SharedPtr msg_point;
 int current_frame_id_=0;
 
-void laserCloudHandler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
+void laserCloudHandler(const sensor_msgs::msg::PointCloud2::SharedPtr msg) {
     std::unique_lock<std::mutex> lock(laser_mtx);
     msg_point = msg;
     laser_buffer.push(msg);
 }
 
-void OdomHandler(const nav_msgs::Odometry::ConstPtr &msg) {
+void OdomHandler(const nav_msgs::msg::Odometry::SharedPtr msg) {
     std::unique_lock<std::mutex> lock(odom_mtx);
     odom_buffer.push(msg);
 }
@@ -69,10 +69,10 @@ bool syncPackages(PointCloud::Ptr &cloud, Eigen::Affine3d &pose) {
         return false;
 
     auto laser_msg = laser_buffer.front();
-    double laser_timestamp = laser_msg->header.stamp.toSec();
+    double laser_timestamp = laser_msg->header.stamp.seconds();
 
     auto odom_msg = odom_buffer.front();
-    double odom_timestamp = odom_msg->header.stamp.toSec();
+    double odom_timestamp = odom_msg->header.stamp.seconds();
 
     // check if timestamps are matched
     if (abs(odom_timestamp - laser_timestamp) < 1e-3) {
@@ -96,13 +96,13 @@ bool syncPackages(PointCloud::Ptr &cloud, Eigen::Affine3d &pose) {
         odom_buffer.pop();
 
     } else if (odom_timestamp < laser_timestamp) {
-        ROS_WARN("Current odometry is earlier than laser scan, discard one "
+        RCLCPP_WARN(nh->get_logger(),"Current odometry is earlier than laser scan, discard one "
                  "odometry data.");
         std::unique_lock<std::mutex> o_lock(odom_mtx);
         odom_buffer.pop();
         return false;
     } else {
-        ROS_WARN(
+        RCLCPP_WARN(nh->get_logger(),
             "Current laser scan is earlier than odometry, discard one laser scan.");
         std::unique_lock<std::mutex> l_lock(laser_mtx);
         laser_buffer.pop();
@@ -119,7 +119,7 @@ bool readPC(PointCloud::Ptr &cloud) {
         return false;
 
     auto laser_msg = laser_buffer.front();
-    double laser_timestamp = laser_msg->header.stamp.toSec();
+    double laser_timestamp = laser_msg->header.stamp.seconds();
     pcl::fromROSMsg(*laser_msg, *cloud);
     std::unique_lock<std::mutex> l_lock(laser_mtx);
     laser_buffer.pop();
@@ -127,24 +127,24 @@ bool readPC(PointCloud::Ptr &cloud) {
 }
 //////////////////////////////////////////////////////////////////
 
-void convertToMarkers(const std::vector<STDesc>& stds, visualization_msgs::MarkerArray& marker_array, const Eigen::Vector3f& color, float alpha = 1.0, float scale = 0.03) {
+void convertToMarkers(const std::vector<STDesc>& stds, visualization_msgs::msg::MarkerArray& marker_array, const Eigen::Vector3f& color, float alpha = 1.0, float scale = 0.03) {
     int id = 0;
 
     for (const auto& std : stds) {
-        visualization_msgs::Marker marker;
+        visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "map";
-        marker.header.stamp = ros::Time::now();
+        marker.header.stamp = this->now();
         marker.ns = "std_descriptors";
         marker.id = id++;
-        marker.type = visualization_msgs::Marker::LINE_LIST;
-        marker.action = visualization_msgs::Marker::ADD;
+        marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        marker.action = visualization_msgs::msg::Marker::ADD;
         marker.scale.x = scale;
         marker.color.r = color(0);  
         marker.color.g = color(1);  
         marker.color.b = color(2);  
         marker.color.a = alpha;     
 
-        geometry_msgs::Point p1, p2, p3;
+        geometry_msgs::msg::Point p1, p2, p3;
         p1.x = std.vertex_A_(0);
         p1.y = std.vertex_A_(1);
         p1.z = std.vertex_A_(2);
@@ -166,24 +166,24 @@ void convertToMarkers(const std::vector<STDesc>& stds, visualization_msgs::Marke
     }
 }
 
-void MAPconvertToMarkers(const Eigen::MatrixXf& data, visualization_msgs::MarkerArray& marker_array, const Eigen::Vector3f& color, float alpha = 1.0, float scale = 0.03) {
+void MAPconvertToMarkers(const Eigen::MatrixXf& data, visualization_msgs::msg::MarkerArray& marker_array, const Eigen::Vector3f& color, float alpha = 1.0, float scale = 0.03) {
     int id = 0;
 
     for (int i = 0; i < data.rows(); ++i) {
-        visualization_msgs::Marker marker;
+        visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "map";
-        marker.header.stamp = ros::Time::now();
+        marker.header.stamp = this->now();
         marker.ns = "std_descriptors";
         marker.id = id++;
-        marker.type = visualization_msgs::Marker::LINE_LIST;
-        marker.action = visualization_msgs::Marker::ADD;
+        marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        marker.action = visualization_msgs::msg::Marker::ADD;
         marker.scale.x = scale;
         marker.color.r = color(0);  
         marker.color.g = color(1);  
         marker.color.b = color(2);  
         marker.color.a = alpha;     
 
-        geometry_msgs::Point p1, p2, p3;
+        geometry_msgs::msg::Point p1, p2, p3;
         p1.x = data(i,9);
         p1.y = data(i,10);
         p1.z = data(i,11);
@@ -309,7 +309,7 @@ void updateMatrixAndKDTree(Eigen::MatrixXf& mat, std::unique_ptr<nanoflann::KDTr
     index->index_->buildIndex();
 }
 
-void publishLocalMap(const std::deque<STDesc>& std_local_map, visualization_msgs::MarkerArray& marker_array, const Eigen::Vector3f& color, float alpha = 1.0) {
+void publishLocalMap(const std::deque<STDesc>& std_local_map, visualization_msgs::msg::MarkerArray& marker_array, const Eigen::Vector3f& color, float alpha = 1.0) {
     std::vector<STDesc> temp_vector;
     temp_vector.reserve(std_local_map.size());
     for (const auto& desc : std_local_map) {
@@ -328,13 +328,13 @@ std::tuple<float, float, float> getRandomColor() {
     return std::make_tuple(dis(gen), dis(gen), dis(gen));
 }
 
-void generateArrow(const STDesc& desc1, const STDesc& desc2, visualization_msgs::MarkerArray& marker_array, int& id, const std_msgs::Header& header) {
-    visualization_msgs::Marker arrow;
+void generateArrow(const STDesc& desc1, const STDesc& desc2, visualization_msgs::msg::MarkerArray& marker_array, int& id, const std_msgs::msg::Header& header) {
+    visualization_msgs::msg::Marker arrow;
     arrow.header.frame_id = "map";
     arrow.ns = "std_matches";
     arrow.id = id++;
-    arrow.type = visualization_msgs::Marker::ARROW;
-    arrow.action = visualization_msgs::Marker::ADD;
+    arrow.type = visualization_msgs::msg::Marker::ARROW;
+    arrow.action = visualization_msgs::msg::Marker::ADD;
     arrow.scale.x = 0.05;  // Grosor del cuerpo de la flecha
     arrow.scale.y = 0.2;  // Grosor de la cabeza de la flecha
     arrow.scale.z = 0.4;   // Longitud de la cabeza de la flecha
@@ -347,13 +347,13 @@ void generateArrow(const STDesc& desc1, const STDesc& desc2, visualization_msgs:
     arrow.color.a = 1.0;
 
     // Starting point (center of descriptor 1)
-    geometry_msgs::Point start;
+    geometry_msgs::msg::Point start;
     start.x = desc1.center_(0);
     start.y = desc1.center_(1);
     start.z = desc1.center_(2);
 
     // End point (center of descriptor 2)
-    geometry_msgs::Point end;
+    geometry_msgs::msg::Point end;
     end.x = desc2.center_(0);
     end.y = desc2.center_(1);
     end.z = desc2.center_(2);
@@ -563,35 +563,36 @@ void updateMatrixAndKDTreeWithFiltering(Eigen::MatrixXf& mat, std::unique_ptr<na
 }
 
 int main(int argc, char **argv) {
-    ros::init(argc, argv, "STD_descriptor");
-    ros::NodeHandle nh;
+    rclcpp::init(argc, argv);
+    nh = std::make_shared<rclcpp::Node>("STD_descriptor");
+
 
     ConfigSetting config_setting;
     read_parameters(nh, config_setting);
 
-    nh.getParam("/pcTopic",pcTopic);        
+    nh->get_parameter("/pcTopic",pcTopic);        
 
 
 
-    ros::Publisher pubkeycurr = nh.advertise<visualization_msgs::MarkerArray>("std_curr", 10);
-    ros::Publisher pubkeyprev = nh.advertise<visualization_msgs::MarkerArray>("std_prev", 10);    
-    ros::Publisher pubkeymap = nh.advertise<visualization_msgs::MarkerArray>("std_map", 10); 
-    ros::Publisher pubkeymap_filter = nh.advertise<visualization_msgs::MarkerArray>("std_map_filter", 10);  
+    rclcpp::Publisher pubkeycurr = nh.create_publisher<visualization_msgs::msg::MarkerArray>("std_curr", 10);
+    rclcpp::Publisher pubkeyprev = nh.create_publisher<visualization_msgs::msg::MarkerArray>("std_prev", 10);    
+    rclcpp::Publisher pubkeymap = nh.create_publisher<visualization_msgs::msg::MarkerArray>("std_map", 10); 
+    rclcpp::Publisher pubkeymap_filter = nh.create_publisher<visualization_msgs::msg::MarkerArray>("std_map_filter", 10);  
     
-    ros::Publisher pub_curr_points = nh.advertise<sensor_msgs::PointCloud2>("std_curr_points", 10);
-    ros::Publisher pub_prev_points = nh.advertise<sensor_msgs::PointCloud2>("std_prev_points", 10);
-    ros::Publisher pub_map_points = nh.advertise<sensor_msgs::PointCloud2>("std_map_points", 10);
+    rclcpp::Publisher pub_curr_points = nh.create_publisher<sensor_msgs::msg::PointCloud2>("std_curr_points", 10);
+    rclcpp::Publisher pub_prev_points = nh.create_publisher<sensor_msgs::msg::PointCloud2>("std_prev_points", 10);
+    rclcpp::Publisher pub_map_points = nh.create_publisher<sensor_msgs::msg::PointCloud2>("std_map_points", 10);
     
-    ros::Publisher pubSTD = nh.advertise<visualization_msgs::MarkerArray>("pair_std", 10);
-    // ros::Publisher marker_pub_prev = nh.advertise<visualization_msgs::MarkerArray>("Axes_prev_STD", 10);
-    // ros::Publisher marker_pub_curr = nh.advertise<visualization_msgs::MarkerArray>("Axes_curr_STD", 10);
-    ros::Publisher pose_pub_prev = nh.advertise<geometry_msgs::PoseArray>("std_prev_poses", 10);
-    ros::Publisher pose_pub_curr = nh.advertise<geometry_msgs::PoseArray>("std_curr_poses", 10);
+    rclcpp::Publisher pubSTD = nh.create_publisher<visualization_msgs::msg::MarkerArray>("pair_std", 10);
+    // rclcpp::Publisher marker_pub_prev = nh.create_publisher<visualization_msgs::msg::MarkerArray>("Axes_prev_STD", 10);
+    // rclcpp::Publisher marker_pub_curr = nh.create_publisher<visualization_msgs::msg::MarkerArray>("Axes_curr_STD", 10);
+    rclcpp::Publisher pose_pub_prev = nh.create_publisher<geometry_msgs::msg::PoseArray>("std_prev_poses", 10);
+    rclcpp::Publisher pose_pub_curr = nh.create_publisher<geometry_msgs::msg::PoseArray>("std_curr_poses", 10);
 
-    ros::Subscriber subLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(pcTopic, 100, laserCloudHandler);
-    ros::Subscriber subOdom = nh.subscribe<nav_msgs::Odometry>("/odom_dq", 100, OdomHandler);
-    ros::Publisher cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("output_cloud_std_ex", 1);
-    ros::Publisher cloud_pub_prev = nh.advertise<sensor_msgs::PointCloud2>("output_cloud_prev", 1);
+    rclcpp::Subscriber subLaserCloud = nh.create_subscription<sensor_msgs::msg::PointCloud2>(pcTopic, 100,std::bind(& laserCloudHandler, std::placeholders::_1));
+    rclcpp::Subscriber subOdom = nh.create_subscription<nav_msgs::msg::Odometry>("/odom_dq", 100,std::bind(& OdomHandler, std::placeholders::_1));
+    rclcpp::Publisher cloud_pub = nh.create_publisher<sensor_msgs::msg::PointCloud2>("output_cloud_std_ex", 1);
+    rclcpp::Publisher cloud_pub_prev = nh.create_publisher<sensor_msgs::msg::PointCloud2>("output_cloud_prev", 1);
 
 
     STDescManager *std_manager = new STDescManager(config_setting);
@@ -612,8 +613,8 @@ int main(int argc, char **argv) {
     std::deque<Eigen::Affine3d> pose_vec;
     int cont_itera = 0;
 
-    while (ros::ok()) {
-        ros::spinOnce();
+    while (rclcpp::ok()) {
+        rclcpp::spinOnce();
         std::vector<STDesc> stds_curr_pair;
         std::vector<STDesc> stds_map_pair;
         std::vector<STDesc> stds_map; 
@@ -632,14 +633,14 @@ int main(int argc, char **argv) {
                 stds_prev = stds_curr;
                 stds_map = stds_curr;
                  
-                ROS_INFO("++++++++++ Iniciando Extraccion de STD ++++++++");
+                RCLCPP_INFO(nh->get_logger(),"++++++++++ Iniciando Extraccion de STD ++++++++");
             } else { 
                 
                 pcl::transformPointCloud(*current_cloud, *current_cloud_world, pose_prev);
                 std_manager->GenerateSTDescs(current_cloud_world, stds_curr);
 
                 if (!stds_prev.empty()) {
-                    visualization_msgs::MarkerArray marker_array;
+                    visualization_msgs::msg::MarkerArray marker_array;
                     int id = 0;
  
                     for (const auto& desc : stds_curr) {
@@ -693,71 +694,71 @@ int main(int argc, char **argv) {
                     }
 
                     // Publish arrows in RViz
-                    pubSTD.publish(marker_array);
-                    visualization_msgs::Marker delete_marker_curr;
-                    delete_marker_curr.action = visualization_msgs::Marker::DELETEALL;
+                    pubSTD->publish(marker_array);
+                    visualization_msgs::msg::Marker delete_marker_curr;
+                    delete_marker_curr.action = visualization_msgs::msg::Marker::DELETEALL;
                     marker_array.markers.clear();
                     marker_array.markers.push_back(delete_marker_curr);
-                    pubSTD.publish(marker_array);
+                    pubSTD->publish(marker_array);
                 }
             }
 
-            sensor_msgs::PointCloud2 output_cloud;
+            sensor_msgs::msg::PointCloud2 output_cloud;
             pcl::toROSMsg(*current_cloud_world, output_cloud);
             output_cloud.header.frame_id = "map";  
-            cloud_pub.publish(output_cloud);
+            cloud_pub->publish(output_cloud);
             
             ///////////////// Data visualization ///////
 
             //// visualizacion de los keypoints current
-            visualization_msgs::MarkerArray marker_array_curr;
+            visualization_msgs::msg::MarkerArray marker_array_curr;
             Eigen::Vector3f colorVector_curr(0.0f, 0.0f, 1.0f);  // azul
 
             convertToMarkers(stds_curr, marker_array_curr,colorVector_curr ,0.5,0.05);
-            pubkeycurr.publish(marker_array_curr);
-            visualization_msgs::Marker delete_marker_curr;
-            delete_marker_curr.action = visualization_msgs::Marker::DELETEALL;
+            pubkeycurr->publish(marker_array_curr);
+            visualization_msgs::msg::Marker delete_marker_curr;
+            delete_marker_curr.action = visualization_msgs::msg::Marker::DELETEALL;
             marker_array_curr.markers.clear();  // Asegúrate de que el array de marcadores esté vacío
             marker_array_curr.markers.push_back(delete_marker_curr);
-            pubkeycurr.publish(marker_array_curr);
+            pubkeycurr->publish(marker_array_curr);
             //////////////////////////////////////////
 
             ////// publicacion de nube de puntos en los vertices de los stds
             pcl::PointCloud<pcl::PointXYZ>::Ptr std_points(new pcl::PointCloud<pcl::PointXYZ>);
             convertToPointCloud(stds_curr, std_points);
-            sensor_msgs::PointCloud2 output_curr;
+            sensor_msgs::msg::PointCloud2 output_curr;
             pcl::toROSMsg(*std_points, output_curr);
             output_curr.header.frame_id = "map";
-            pub_curr_points.publish(output_curr);
+            pub_curr_points->publish(output_curr);
             //////////////////////////////////////////
             
             ///////////////////// Previous std
             ////// visualizacion de los keypoints prev
-            visualization_msgs::MarkerArray marker_array_prev;
+            visualization_msgs::msg::MarkerArray marker_array_prev;
             Eigen::Vector3f colorVector_prev(1.0f, 0.0f, 0.0f);  // rojo
             convertToMarkers(stds_prev, marker_array_prev,colorVector_prev ,0.25);
-            pubkeyprev.publish(marker_array_prev);
-            visualization_msgs::Marker delete_marker_prev;
-            delete_marker_prev.action = visualization_msgs::Marker::DELETEALL;
+            pubkeyprev->publish(marker_array_prev);
+            visualization_msgs::msg::Marker delete_marker_prev;
+            delete_marker_prev.action = visualization_msgs::msg::Marker::DELETEALL;
             marker_array_prev.markers.clear();  // Asegúrate de que el array de marcadores esté vacío
             marker_array_prev.markers.push_back(delete_marker_prev);
-            pubkeyprev.publish(marker_array_prev);
+            pubkeyprev->publish(marker_array_prev);
             //////////////////////////////////////////
 
             ////// publicacion de nube de puntos en los vertices de los stds
             pcl::PointCloud<pcl::PointXYZ>::Ptr std_points_prev(new pcl::PointCloud<pcl::PointXYZ>);
             convertToPointCloud(stds_prev, std_points_prev);
-            sensor_msgs::PointCloud2 output_prev;
+            sensor_msgs::msg::PointCloud2 output_prev;
             pcl::toROSMsg(*std_points_prev, output_prev);
             output_prev.header.frame_id = "map";
-            pub_prev_points.publish(output_prev);
+            pub_prev_points->publish(output_prev);
             //////////////////////////////////////////
 
             /////////////// plot stds_map
-            visualization_msgs::MarkerArray marker_array_map;
+            visualization_msgs::msg::MarkerArray marker_array_map;
             Eigen::Vector3f colorVector_map(0.0f, 0.0f, 0.0f); 
             publishLocalMap(std_local_map, marker_array_map,colorVector_map ,0.5);
-            pubkeymap.publish(marker_array_map);
+            pubkeymap->publish(marker_array_map);
 
             ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -787,27 +788,27 @@ int main(int argc, char **argv) {
             ////// publication of point cloud on the vertices of the filtered MAP stds
             pcl::PointCloud<pcl::PointXYZ>::Ptr std_map_pcl(new pcl::PointCloud<pcl::PointXYZ>);
             MAPconvertToPointCloud(mat, std_map_pcl);
-            sensor_msgs::PointCloud2 output_map_point;
+            sensor_msgs::msg::PointCloud2 output_map_point;
             pcl::toROSMsg(*std_map_pcl, output_map_point);
             output_map_point.header.frame_id = "map";
-            pub_map_points.publish(output_map_point);
+            pub_map_points->publish(output_map_point);
 
             ////// display of the filtered map triangles
-            visualization_msgs::MarkerArray marker_map_filter;
+            visualization_msgs::msg::MarkerArray marker_map_filter;
             Eigen::Vector3f colorVector_map_fil(1.0f, 0.0f, 1.0f);  
             MAPconvertToMarkers(mat, marker_map_filter,colorVector_map_fil ,1.0,0.05);
-            pubkeymap_filter.publish(marker_map_filter);
-            visualization_msgs::Marker delete_map_filter;
-            delete_map_filter.action = visualization_msgs::Marker::DELETEALL;
+            pubkeymap_filter->publish(marker_map_filter);
+            visualization_msgs::msg::Marker delete_map_filter;
+            delete_map_filter.action = visualization_msgs::msg::Marker::DELETEALL;
             marker_map_filter.markers.clear();  
             marker_map_filter.markers.push_back(delete_map_filter);
-            pubkeymap_filter.publish(marker_map_filter);
+            pubkeymap_filter->publish(marker_map_filter);
             //////////////////////////////////////////
 
             auto end = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = end - start;
 
-            ROS_INFO("Extracted %lu ST descriptors in %f seconds", stds_curr.size(), elapsed.count());
+            RCLCPP_INFO(nh->get_logger(),"Extracted %lu ST descriptors in %f seconds", stds_curr.size(), elapsed.count());
             
             std_manager->publishPoses(pose_pub_prev, stds_map_pair, msg_point->header,"map");
             std_manager->publishPoses(pose_pub_curr, stds_curr_pair, msg_point->header,"map");

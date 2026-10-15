@@ -27,7 +27,7 @@
 
 
 // ROS msgs
-#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/msg/pose_array.hpp>
 
 //ceres
 #include <ceres/ceres.h>
@@ -38,7 +38,7 @@
 #include <Eigen/Geometry>
 
 //LOCAL LIB
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 // STD LIB
 #include "STDesc.h"
@@ -59,7 +59,7 @@ class OdomEstimationClass
 		Eigen::Isometry3d odom;
 		pcl::PointCloud<pcl::PointXYZ>::Ptr laserCloudCornerMap;
 		pcl::PointCloud<pcl::PointXYZ>::Ptr laserCloudSurfMap;
-		geometry_msgs::PoseArrayConstPtr std_posesMap;
+		geometry_msgs::msg::PoseArrayConstPtr std_posesMap;
 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr edge_cloud; 
 		pcl::PointCloud<pcl::PointXYZ>::Ptr surf_cloud; 

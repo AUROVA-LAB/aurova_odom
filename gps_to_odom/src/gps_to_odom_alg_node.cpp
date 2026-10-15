@@ -1,16 +1,24 @@
 #include "gps_to_odom_alg_node.h"
 
 GpsToOdomAlgNode::GpsToOdomAlgNode(void) :
-    algorithm_base::IriBaseAlgorithm<GpsToOdomAlgorithm>()
+    Node("gpstoodom")
 {
+  broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(this);
+  tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
   //init class attributes if necessary
   this->flag_publish_odom_ = false;
   this->flag_gnss_position_received_ = false;
   this->flag_gnss_velocity_received_ = false;
   //this->loop_rate_ = 10; //in [Hz]
-  this->public_node_handle_.getParam("/gps_to_odom/frame_id", this->frame_id_);
-  this->public_node_handle_.getParam("/gps_to_odom/min_speed", this->min_speed_);
-  this->public_node_handle_.getParam("/gps_to_odom/max_speed", this->max_speed_);
+  this->declare_parameter("frame_id", "map");
+  this->get_parameter("frame_id", this->frame_id_);
+  this->declare_parameter("min_speed", 0.4);
+  this->get_parameter("min_speed", this->min_speed_);
+  this->declare_parameter("max_speed", 1.3);
+  this->get_parameter("max_speed", this->max_speed_);
+  auto parameter_callback = this->add_on_set_parameters_callback(std::bind(&GpsToOdomAlgNode::node_config_update, this, std::placeholders::_1));
+
 
   this->odom_gps_.pose.pose.orientation.x = 0.0;
   this->odom_gps_.pose.pose.orientation.y = 0.0;
@@ -18,14 +26,13 @@ GpsToOdomAlgNode::GpsToOdomAlgNode(void) :
   this->odom_gps_.pose.pose.orientation.w = 1.0;
 
   // [init publishers]
-  this->odom_gps_pub_ = this->public_node_handle_.advertise < nav_msgs::Odometry > ("/odometry_gps", 1);
+  this->odom_gps_pub_ = this->create_publisher < nav_msgs::msg::Odometry > ("/odometry_gps", 1);
 
-  // [init subscribers]
-  this->sim_fix_sub_ = this->public_node_handle_.subscribe("/fix", 1, &GpsToOdomAlgNode::cb_getSimGpsFixMsg, this);
-  this->sim_vel_sub_ = this->public_node_handle_.subscribe("/fix_vel", 1, &GpsToOdomAlgNode::cb_getSimGpsVelMsg, this);
-  this->bot_vel_sub_ = this->public_node_handle_.subscribe("/rover/fix_velocity", 1,
-                                                           &GpsToOdomAlgNode::cb_getBotGpsVelMsg, this);
-  this->nco_vel_sub_ = this->public_node_handle_.subscribe("/vel", 1, &GpsToOdomAlgNode::cb_getNcoGpsVelMsg, this);
+  // [init create_subscription<msgs::msg::YourMessageType>rs]
+  this->sim_fix_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>("/fix", 1, std::bind(&GpsToOdomAlgNode::cb_getSimGpsFixMsg, this, std::placeholders::_1));
+  this->sim_vel_sub_ = this->create_subscription<geometry_msgs::msg::Vector3Stamped>("/fix_vel", 1, std::bind(&GpsToOdomAlgNode::cb_getSimGpsVelMsg, this, std::placeholders::_1));
+  this->bot_vel_sub_ = this->create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>("/rover/fix_velocity", 1, std::bind(&GpsToOdomAlgNode::cb_getBotGpsVelMsg, this, std::placeholders::_1));
+  this->nco_vel_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>("/vel", 1, std::bind(&GpsToOdomAlgNode::cb_getNcoGpsVelMsg, this, std::placeholders::_1));
 
   // [init services]
 
@@ -53,17 +60,17 @@ void GpsToOdomAlgNode::mainNodeThread(void)
   this->flag_gnss_velocity_received_ = true;
   if (this->flag_gnss_position_received_ && this->flag_gnss_velocity_received_)
   {
-    this->odom_gps_pub_.publish(this->odom_gps_);
+    this->odom_gps_pub_->publish(this->odom_gps_);
     this->flag_gnss_position_received_ = false;
     this->flag_gnss_velocity_received_ = false;
   }
-  this->alg_.unlock();
+
 }
 
-/*  [subscriber callbacks] */
-void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::NavSatFix::ConstPtr &fix_msg)
+/*  [create_subscription<msgs::msg::YourMessageType>r callbacks] */
+void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::msg::NavSatFix::SharedPtr fix_msg)
 {
-  this->alg_.lock();
+
   Ellipsoid utm;
   double utm_x;
   double utm_y;
@@ -74,20 +81,21 @@ void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::NavSatFix::ConstPtr
 
   ///////////////////////////////////////////////////////////
   ///// TRANSFORM TO TF FARME
-  geometry_msgs::PointStamped fix_tf;
-  geometry_msgs::PointStamped fix_utm;
+  geometry_msgs::msg::PointStamped fix_tf;
+  geometry_msgs::msg::PointStamped fix_utm;
   fix_utm.header.frame_id = "utm";
-  fix_utm.header.stamp = ros::Time(0); //ros::Time::now();
+  fix_utm.header.stamp = rclcpp::Time(0); //this->now();
   fix_utm.point.x = utm_x;
   fix_utm.point.y = utm_y;
   fix_utm.point.z = 0.0;
   try
   {
-    this->listener_.transformPoint(this->frame_id_, fix_utm, fix_tf);
+    this->tf_buffer_->transform( fix_utm,  fix_tf, this->frame_id_);
+
   }
-  catch (tf::TransformException &ex)
+  catch (tf2::TransformException &ex)
   {
-    ROS_WARN("[draw_frames] TF exception:\n%s", ex.what());
+    RCLCPP_WARN(this->get_logger(),"[draw_frames] TF exception:\n%s", ex.what());
     return;
   }
   ///////////////////////////////////////////////////////////
@@ -102,12 +110,12 @@ void GpsToOdomAlgNode::cb_getSimGpsFixMsg(const sensor_msgs::NavSatFix::ConstPtr
   this->odom_gps_.pose.covariance[14] = fix_msg->position_covariance[8];
 
   this->flag_gnss_position_received_ = true;
-  this->alg_.unlock();
+
 }
 
-void GpsToOdomAlgNode::cb_getSimGpsVelMsg(const geometry_msgs::Vector3Stamped::ConstPtr &vel_msg)
+void GpsToOdomAlgNode::cb_getSimGpsVelMsg(const geometry_msgs::msg::Vector3Stamped::SharedPtr vel_msg)
 {
-  this->alg_.lock();
+
 
   // no transform because the orientation is in north of frame "world" that coincides with frame "map" 
   this->odom_gps_.twist.twist.linear.x = vel_msg->vector.x;
@@ -115,7 +123,7 @@ void GpsToOdomAlgNode::cb_getSimGpsVelMsg(const geometry_msgs::Vector3Stamped::C
   this->odom_gps_.twist.twist.linear.z = vel_msg->vector.z;
 
   double yaw = atan2(vel_msg->vector.y, vel_msg->vector.x);
-  tf::Quaternion quat_world = tf::createQuaternionFromRPY(0, 0, yaw);
+  tf2::Quaternion quat_world; quat_world.setRPY(0, 0, yaw);
 
   double speed = sqrt(pow(vel_msg->vector.y, 2) + pow(vel_msg->vector.x, 2));
 
@@ -142,12 +150,12 @@ void GpsToOdomAlgNode::cb_getSimGpsVelMsg(const geometry_msgs::Vector3Stamped::C
 
   this->flag_gnss_velocity_received_ = true;
 
-  this->alg_.unlock();
+
 }
 
-void GpsToOdomAlgNode::cb_getBotGpsVelMsg(const geometry_msgs::TwistWithCovarianceStamped::ConstPtr &vel_msg)
+void GpsToOdomAlgNode::cb_getBotGpsVelMsg(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr vel_msg)
 {
-  this->alg_.lock();
+
 
   //////////////////// Extract velocities in "map" frame /////////////////////////////////
   // Get the velocities expressed in UTM from the message
@@ -159,17 +167,19 @@ void GpsToOdomAlgNode::cb_getBotGpsVelMsg(const geometry_msgs::TwistWithCovarian
   // Get transform from UTM to MAP
   try
   {
-    this->listener_.lookupTransform(this->frame_id_, "utm", ros::Time(0), this->utm_trans_);
+     this->utm_trans_ = this->tf_buffer_->lookupTransform(this->frame_id_,  "utm", tf2::TimePointZero);
+
   }
-  catch (tf::TransformException ex)
+  catch (tf2::TransformException ex)
   {
-    ROS_ERROR("%s", ex.what());
-    ros::Duration(1.0).sleep();
+    RCLCPP_ERROR(this->get_logger(),"%s", ex.what());
+    rclcpp::sleep_for(std::chrono::seconds(1));
   }
 
   // Convert it to Eigen
   Eigen::Affine3d UTM_to_map_rotation;
-  tf::transformTFToEigen(this->utm_trans_, UTM_to_map_rotation);
+  UTM_to_map_rotation = tf2::transformToEigen(this->utm_trans_);
+
 
   // Convert the velocities to "map" frame
   Eigen::Vector3d map_velocities = Eigen::Vector3d::Zero();
@@ -198,7 +208,7 @@ void GpsToOdomAlgNode::cb_getBotGpsVelMsg(const geometry_msgs::TwistWithCovarian
     map_orientations_RPY(2) = atan2(vy, vx);
 
     // Converting to quarternion to fill the ROS message
-    tf::Quaternion quaternion = tf::createQuaternionFromRPY(map_orientations_RPY(0), map_orientations_RPY(1),
+    tf2::Quaternion quaternion; quaternion.setRPY(map_orientations_RPY(0), map_orientations_RPY(1),
                                                             map_orientations_RPY(2));
 
     //std::cout << "Roll = " << map_orientations_RPY(0) * 180.0 / M_PI << "    Pitch = "
@@ -305,12 +315,12 @@ void GpsToOdomAlgNode::cb_getBotGpsVelMsg(const geometry_msgs::TwistWithCovarian
   }
 
   this->flag_gnss_velocity_received_ = true;
-  this->alg_.unlock();
+
 }
 
-void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::ConstPtr &vel_msg)
+void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::msg::TwistStamped::SharedPtr vel_msg)
 {
-  this->alg_.lock();
+
 
   //////////////////// Extract velocities in "map" frame /////////////////////////////////
   // Get the velocities expressed in UTM from the message
@@ -322,17 +332,19 @@ void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::Con
   // Get transform from UTM to MAP
   try
   {
-    this->listener_.lookupTransform(this->frame_id_, "utm", ros::Time(0), this->utm_trans_);
+     this->utm_trans_ = this->tf_buffer_->lookupTransform(this->frame_id_,  "utm", tf2::TimePointZero);
+
   }
-  catch (tf::TransformException ex)
+  catch (tf2::TransformException ex)
   {
-    ROS_ERROR("%s", ex.what());
-    ros::Duration(1.0).sleep();
+    RCLCPP_ERROR(this->get_logger(),"%s", ex.what());
+    rclcpp::sleep_for(std::chrono::seconds(1));
   }
 
   // Convert it to Eigen
   Eigen::Affine3d UTM_to_map_rotation;
-  tf::transformTFToEigen(this->utm_trans_, UTM_to_map_rotation);
+   UTM_to_map_rotation = tf2::transformToEigen(this->utm_trans_);
+
 
   // Convert the velocities to "map" frame
   Eigen::Vector3d map_velocities = Eigen::Vector3d::Zero();
@@ -361,7 +373,7 @@ void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::Con
     map_orientations_RPY(2) = atan2(vy, vx);
 
     // Converting to quarternion to fill the ROS message
-    tf::Quaternion quaternion = tf::createQuaternionFromRPY(map_orientations_RPY(0), map_orientations_RPY(1),
+    tf2::Quaternion quaternion; quaternion.setRPY(map_orientations_RPY(0), map_orientations_RPY(1),
                                                             map_orientations_RPY(2));
 
     //std::cout << "Roll = " << map_orientations_RPY(0) * 180.0 / M_PI << "    Pitch = "
@@ -473,7 +485,7 @@ void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::Con
   map_orientations_RPY(2) = 0.0;
 
   // Converting to quarternion to fill the ROS message
-  tf::Quaternion quaternion = tf::createQuaternionFromRPY(map_orientations_RPY(0), map_orientations_RPY(1),
+  tf2::Quaternion quaternion; quaternion.setRPY(map_orientations_RPY(0), map_orientations_RPY(1),
                                                           map_orientations_RPY(2));
       // Pass it to the output message
   this->odom_gps_.pose.pose.orientation.x = quaternion[0];
@@ -483,7 +495,7 @@ void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::Con
   ///////////////////////////////////////////////////////////////////////////////
 
   this->flag_gnss_velocity_received_ = true;
-  this->alg_.unlock();
+
 }
 
 /*  [service callbacks] */
@@ -492,19 +504,32 @@ void GpsToOdomAlgNode::cb_getNcoGpsVelMsg(const geometry_msgs::TwistStamped::Con
 
 /*  [action requests] */
 
-void GpsToOdomAlgNode::node_config_update(Config &config, uint32_t level)
+rcl_interfaces::msg::SetParametersResult GpsToOdomAlgNode::node_config_update(const std::vector<rclcpp::Parameter> &parameters)
 {
-  this->alg_.lock();
-  this->config_ = config;
-  this->alg_.unlock();
+  this->get_parameter("/gps_to_odom/frame_id", this->frame_id_);
+  this->get_parameter("/gps_to_odom/min_speed", this->min_speed_);
+  this->get_parameter("/gps_to_odom/max_speed", this->max_speed_);
+
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  result.reason = "success";
+  return result;
 }
 
-void GpsToOdomAlgNode::addNodeDiagnostics(void)
-{
-}
 
 /* main function */
 int main(int argc, char *argv[])
 {
-  return algorithm_base::main < GpsToOdomAlgNode > (argc, argv, "gps_to_odom_alg_node");
+	rclcpp::init(argc, argv);
+	auto node = std::make_shared< GpsToOdomAlgNode >();
+	node->rate = node->declare_parameter<double>("rate", 10.0);
+	node->loop_rate = std::make_shared<rclcpp::Rate>(node->rate);
+
+	while (rclcpp::ok()) {
+		node->mainNodeThread();
+		rclcpp::spin_some(node);
+		node->loop_rate->sleep();
+	}
+	rclcpp::shutdown();
+	return 0;
 }

@@ -14,7 +14,7 @@ Parameters:
 * ~gps_to_odom/max_speed (default: null): We add additive variance to the orientation message inversely proportional to this parameter.
  
 **ackermann_to_odom**
-This package contains a node that, as input, reads the topics /estimated_ackermann_state and /covariance_ackermann_state, of type ackermann_msgs::AckermannDriveStamped, and /virtual_imu_data of type sensor_msgs::Imu. This node parse this information as a new message type nav_msgs::Odometry using the 2D tricicle model. This message is published in an output topic called /odometry.
+This package contains a node that, as input, reads the topics /estimated_ackermann_state and /covariance_ackermann_state, of type ackermann_msgs::AckermannDrive, and /virtual_imu_data of type sensor_msgs::Imu. This node parse this information as a new message type nav_msgs::Odometry using the 2D tricicle model. This message is published in an output topic called /odometry.
 
 Parameters:
 * ~odom_in_tf (default: false): If this parameter is set to true, the odometry is also published in /tf topic.

@@ -10,20 +10,20 @@
 #include <mutex>
 #include <pcl/common/io.h>
 #include <pcl/kdtree/kdtree_flann.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 #include <sstream>
 #include <stdio.h>
 #include <string>
 #include <unordered_map>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <std_msgs/Header.h>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <std_msgs/msg/header.hpp>
 
 #include <nanoflann.hpp> // nanoflann library
 
 // ROS Pose
-#include <geometry_msgs/PoseArray.h>
-#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/msg/pose_array.hpp>
+#include <geometry_msgs/msg/pose.hpp>
 #include <tf2/LinearMath/Quaternion.h>
 
 #define HASH_P 116101
@@ -308,7 +308,7 @@ Eigen::Vector3d point2vec(const pcl::PointXYZI &pi);
 
 void publish_std_pairs(
     const std::vector<std::pair<STDesc, STDesc>> &match_std_pairs,
-    const ros::Publisher &std_publisher);
+    const rclcpp::Publisher<msgs::msg::YourMessageType>::SharedPtr &std_publisher);
 
 bool attach_greater_sort(std::pair<double, int> a, std::pair<double, int> b);
 
@@ -395,11 +395,11 @@ public:
       std::pair<Eigen::Vector3d, Eigen::Matrix3d> &transform);
 
   void MatchConsecutiveFrames(const std::vector<STDesc>& prev_descs, const std::vector<STDesc>& curr_descs, std::vector<std::pair<STDesc, STDesc>>& matched_pairs);
-  void publish_matched_pairs(const std::vector<std::pair<STDesc, STDesc>>& matched_pairs, const ros::Publisher& pub);
-  void publishAxes(const ros::Publisher& marker_pub, const std::vector<STDesc>&, const std_msgs::Header& header);
-  void publishPoses(const ros::Publisher& pose_pub, const std::vector<STDesc>& descs, const std_msgs::Header& header, const std::string frame_id);
+  void publish_matched_pairs(const std::vector<std::pair<STDesc, STDesc>>& matched_pairs, const rclcpp::Publisher<msgs::msg::YourMessageType>::SharedPtr& pub);
+  void publishAxes(const rclcpp::Publisher<msgs::msg::YourMessageType>::SharedPtr& marker_pub, const std::vector<STDesc>&, const std_msgs::msg::Header& header);
+  void publishPoses(const rclcpp::Publisher<msgs::msg::YourMessageType>::SharedPtr& pose_pub, const std::vector<STDesc>& descs, const std_msgs::msg::Header& header, const std::string frame_id);
 
-  //void publishAxes(const ros::Publisher& marker_pub, const std::vector<STDesc>&, const std_msgs::Header& header);
+  //void publishAxes(const rclcpp::Publisher<msgs::msg::YourMessageType>::SharedPtr& marker_pub, const std::vector<STDesc>&, const std_msgs::msg::Header& header);
 
   void clearDatabase();
 

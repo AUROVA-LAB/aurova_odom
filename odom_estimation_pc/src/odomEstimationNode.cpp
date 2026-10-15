@@ -14,12 +14,15 @@
 #include <chrono>
 
 //ros lib
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <std_msgs/Float64.h>
-#include <nav_msgs/Odometry.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <std_msgs/msg/float64.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <tf2/transform_datatypes.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2_eigen/tf2_eigen.hpp>
+
 
 //pcl lib
 #include <pcl_conversions/pcl_conversions.h>
@@ -32,28 +35,30 @@
 
 OdomEstimationClass odomEstimation;
 std::mutex mutex_lock;
-std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudEdgeBuf;
-std::queue<sensor_msgs::PointCloud2ConstPtr> pointCloudSurfBuf;
+std::queue<sensor_msgs::msg::PointCloud2::SharedPtr> pointCloudEdgeBuf;
+std::queue<sensor_msgs::msg::PointCloud2::SharedPtr> pointCloudSurfBuf;
 
-std::string childframeID = "os_sesnor";
+std::string childframeID = "os_sensor";
 std::string edge_pcl = "/pcl_edge";
 std::string surf_pcl = "/pcl_surf";
 
 lidar::Lidar lidar_param;
 
-ros::Publisher pubLaserOdometry;
-ros::Publisher pubOdometryDiff;
+rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubLaserOdometry;
+rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdometryDiff;
+rclcpp::Node::SharedPtr nh;
+std::shared_ptr<tf2_ros::TransformBroadcaster> br{nullptr};
 
-ros::Publisher time_average;
+rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr time_average;
 
 
-void velodyneSurfHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
+void velodyneSurfHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg)
 {
     mutex_lock.lock();
     pointCloudSurfBuf.push(laserCloudMsg);
     mutex_lock.unlock();
 }
-void velodyneEdgeHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
+void velodyneEdgeHandler(const sensor_msgs::msg::PointCloud2::SharedPtr laserCloudMsg)
 {
 
     mutex_lock.lock();
@@ -83,7 +88,7 @@ void odom_estimation(){
             pcl::PointCloud<pcl::PointXYZ>::Ptr pointcloud_edge_in(new pcl::PointCloud<pcl::PointXYZ>());
             pcl::fromROSMsg(*pointCloudEdgeBuf.front(), *pointcloud_edge_in);
             pcl::fromROSMsg(*pointCloudSurfBuf.front(), *pointcloud_surf_in);
-            ros::Time pointcloud_time = (pointCloudSurfBuf.front())->header.stamp;
+            rclcpp::Time pointcloud_time = (pointCloudSurfBuf.front())->header.stamp;
             pointCloudEdgeBuf.pop();
             pointCloudSurfBuf.pop();
             mutex_lock.unlock();
@@ -91,7 +96,7 @@ void odom_estimation(){
             if(is_odom_inited == false){
                 odomEstimation.initMapWithPoints(pointcloud_edge_in, pointcloud_surf_in);
                 is_odom_inited = true;
-                ROS_INFO("odom inited");
+                RCLCPP_INFO(nh->get_logger(),"odom inited");
             }else{
                 std::chrono::time_point<std::chrono::system_clock> start, end;
                 start = std::chrono::system_clock::now();
@@ -102,7 +107,7 @@ void odom_estimation(){
                 float time_temp = elapsed_seconds.count() * 1000.0;
                 total_time+=time_temp;
                 time_delay = total_time/total_frame;
-                ROS_INFO("average odom estimation time %f mS", time_delay);
+                RCLCPP_INFO(nh->get_logger(),"average odom estimation time %f mS", time_delay);
                 time_delay = time_delay/1000.0;
             }
 
@@ -120,19 +125,29 @@ void odom_estimation(){
             q_current = yaw_angle;
             ///////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////
-
-            static tf::TransformBroadcaster br;
-            tf::Transform transform;
-            transform.setOrigin( tf::Vector3(t_current.x(), t_current.y(), t_current.z()) );
-            tf::Quaternion q(q_current.x(),q_current.y(),q_current.z(),q_current.w());
+            tf2::Transform transform;
+            transform.setOrigin( tf2::Vector3(t_current.x(), t_current.y(), t_current.z()) );
+            tf2::Quaternion q(q_current.x(),q_current.y(),q_current.z(),q_current.w());
             transform.setRotation(q);
-            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "odom", "os_sensor"));
+
+            geometry_msgs::msg::TransformStamped ts;
+            ts.header.stamp = nh->now();
+            ts.header.frame_id = "odom";
+            ts.child_frame_id = "os_sensor";
+            ts.transform = tf2::toMsg(transform); 
+            
+            br->sendTransform(ts);
 
             //// TODO: FROM URDF!!!!!!!!
-            transform.setOrigin( tf::Vector3(-0.55, 0.0, -0.645) );
-            tf::Quaternion q2(0.0, 0.0, 0.0, 1.0);
+            transform.setOrigin( tf2::Vector3(-0.55, 0.0, -0.645) );
+            tf2::Quaternion q2(0.0, 0.0, 0.0, 1.0);
             transform.setRotation(q2);
-            br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "os_sensor", "base_link"));
+
+            ts.header.frame_id = "os_sensor";
+            ts.child_frame_id = "base_link";
+            ts.transform = tf2::toMsg(transform); 
+
+            br->sendTransform(ts);
 
           
             Eigen::Isometry3d odom = Eigen::Isometry3d::Identity();
@@ -152,7 +167,7 @@ void odom_estimation(){
 
              
             // publish odometry
-            nav_msgs::Odometry laserOdometry;
+            nav_msgs::msg::Odometry laserOdometry;
             laserOdometry.header.frame_id = "odom";
             laserOdometry.child_frame_id = childframeID;
             laserOdometry.header.stamp = pointcloud_time;
@@ -164,7 +179,7 @@ void odom_estimation(){
             laserOdometry.pose.pose.position.y = t_current.y();
             laserOdometry.pose.pose.position.z = t_current.z();
 
-            nav_msgs::Odometry odomDiff;
+            nav_msgs::msg::Odometry odomDiff;
             odomDiff.header.frame_id = "odom";
             odomDiff.child_frame_id = childframeID;
             odomDiff.header.stamp = pointcloud_time;
@@ -190,26 +205,27 @@ void odom_estimation(){
                }
             }
 
-            pubLaserOdometry.publish(laserOdometry);
-            pubOdometryDiff.publish(odomDiff);
+            pubLaserOdometry->publish(laserOdometry);
+            pubOdometryDiff->publish(odomDiff);
 
             //publish time
 
-            std_msgs::Float64 time_msg;
+            std_msgs::msg::Float64 time_msg;
             time_msg.data = time_delay*1000.0;
-            time_average.publish(time_msg);
+            time_average->publish(time_msg);
 
          }
 
         std::chrono::milliseconds dura(2);
-        std::this_thread::sleep_for(dura);
+        rclcpp::sleep_for(dura);
     }
 }
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "main");
-    ros::NodeHandle nh;
+    rclcpp::init(argc, argv);
+    nh = std::make_shared<rclcpp::Node>("odom_estimation");
+
 
     int scan_line = 16;
     double scan_period= 0.1;
@@ -223,20 +239,32 @@ int main(int argc, char **argv)
     clear_map = true;
     cropBox_len = 10000;
 
-    nh.getParam("/scan_period", scan_period); 
-    nh.getParam("/vertical_angle", vertical_angle); 
-    nh.getParam("/max_dis", max_dis);
-    nh.getParam("/min_dis", min_dis);
-    nh.getParam("/scan_line", scan_line);
-    nh.getParam("/edge_resolution", edge_resolution);
-    nh.getParam("/surf_resolution", surf_resolution);
-    nh.getParam("/clear_map", clear_map);
+    nh->declare_parameter("scan_period", scan_period); 
+    nh->get_parameter("scan_period", scan_period); 
+    nh->declare_parameter("vertical_angle", vertical_angle ); 
+    nh->get_parameter("vertical_angle", vertical_angle); 
+    nh->declare_parameter("max_dis", max_dis);
+    nh->get_parameter("max_dis", max_dis);
+    nh->declare_parameter("min_dis", min_dis);
+    nh->get_parameter("min_dis", min_dis);
+    nh->declare_parameter("scan_line", scan_line);
+    nh->get_parameter("scan_line", scan_line);
+    nh->declare_parameter("edge_resolution", edge_resolution);
+    nh->get_parameter("edge_resolution", edge_resolution);
+    nh->declare_parameter("surf_resolution", surf_resolution);
+    nh->get_parameter("surf_resolution", surf_resolution);
+    nh->declare_parameter("clear_map", clear_map);
+    nh->get_parameter("clear_map", clear_map);
 
-    nh.getParam("/cropBox_len", cropBox_len);
+    nh->declare_parameter("cropBox_len", cropBox_len);
+    nh->get_parameter("cropBox_len", cropBox_len);
 
-    nh.getParam("/childframeID",childframeID);
-    nh.getParam("/pcl_edge",edge_pcl);
-    nh.getParam("/pcl_surf",surf_pcl);
+    nh->declare_parameter("childframeID", childframeID);
+    nh->get_parameter("childframeID",childframeID);
+    nh->declare_parameter("pcl_edge", edge_pcl);
+    nh->get_parameter("pcl_edge",edge_pcl);
+    nh->declare_parameter("pcl_surf", surf_pcl);
+    nh->get_parameter("pcl_surf",surf_pcl);
 
     lidar_param.setScanPeriod(scan_period);
     lidar_param.setValidationAngle(validation_angle);
@@ -247,18 +275,17 @@ int main(int argc, char **argv)
 
     odomEstimation.init(lidar_param, edge_resolution, surf_resolution);
     
-    ros::Subscriber subEdgeLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(edge_pcl, 100, velodyneEdgeHandler);
-    ros::Subscriber subSurfLaserCloud = nh.subscribe<sensor_msgs::PointCloud2>(surf_pcl, 100, velodyneSurfHandler);
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subEdgeLaserCloud = nh->create_subscription<sensor_msgs::msg::PointCloud2>(edge_pcl, 1,std::bind(&velodyneEdgeHandler, std::placeholders::_1));
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr subSurfLaserCloud = nh->create_subscription<sensor_msgs::msg::PointCloud2>(surf_pcl, 1,std::bind(&velodyneSurfHandler, std::placeholders::_1));
 
-    pubLaserOdometry = nh.advertise<nav_msgs::Odometry>("/odom", 100);
-    pubOdometryDiff = nh.advertise<nav_msgs::Odometry>("/odom_diff", 100);
-    time_average = nh.advertise<std_msgs::Float64>("/time_average", 100);
+    pubLaserOdometry = nh->create_publisher<nav_msgs::msg::Odometry>("/odom", 1);
+    pubOdometryDiff = nh->create_publisher<nav_msgs::msg::Odometry>("/odom_diff", 1);
+    time_average = nh->create_publisher<std_msgs::msg::Float64>("/time_average", 1);
 
-
+    br = std::make_unique<tf2_ros::TransformBroadcaster>(nh);
     std::thread odom_estimation_process{odom_estimation};
 
-    ros::spin();
+    rclcpp::spin(nh);
 
     return 0;
 }
-

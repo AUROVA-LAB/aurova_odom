@@ -1,0 +1,30 @@
+<launch>  
+    <node pkg="odom_estimation_pc" exec="odom_estimation_node" name="odom_estimation_node">
+        <param name="scan_period" value="0.1" />      
+        <param name="max_dis" value="50.0" />
+        <param name="min_dis" value="0.01" /> 
+        <param name="scan_line" value="1" /> 
+        <param name="edge_resolution" value="0.5" />
+        <param name="surf_resolution" value="1.0" />
+        <param name="velodyne_height" value="-20.0" />
+        <param name="validation_height" value="false" />
+        <param name="clear_map" value="false" />
+        <param name="cropBox_len" value="100.0" />
+        <param name="pcl_edge" value="/pcl_edge" />
+        <param name="pcl_surf" value="/pcl_surf" />
+        <param name="childframeID" value="os_sensor" />   
+    </node>
+
+
+    <!-- It is not officialy ported in ROS2, and probably not needed as the trajectory can be
+         visualize in other ways with rviz -->
+    <!-- <node pkg="hector_trajectory_server" exec="hector_trajectory_server" name="trajectory_lilo" ns="base_link" >
+        <param name="/target_frame_name" value="odom" />
+        <param name="/source_frame_name" value="base_link" />
+        <param name="/trajectory_update_rate" value="100.0" />
+        <param name="/trajectory_publish_rate" value="100.0" />
+    </node>  -->
+
+</launch>
+
+
