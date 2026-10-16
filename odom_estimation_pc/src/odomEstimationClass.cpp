@@ -83,8 +83,13 @@ void OdomEstimationClass::updatePointsToMap(const pcl::PointCloud<pcl::PointXYZ>
         printf("not enough points in map to associate, map error\n");
     }
     odom = Eigen::Isometry3d::Identity();
+    q_w_curr = q_w_curr.normalized();
     odom.linear() = q_w_curr.toRotationMatrix();
     odom.translation() = t_w_curr;
+
+    printf("Quaternion: x=%f y=%f z=%f w=%f\n", q_w_curr.x(), q_w_curr.y(), q_w_curr.z(), q_w_curr.w());
+    printf("Translation: x=%f y=%f z=%f\n", t_w_curr.x(), t_w_curr.y(), t_w_curr.z());
+
     addPointsToMap(downsampledEdgeCloud,downsampledSurfCloud , clear_map, cropBox_len);
 
 }
