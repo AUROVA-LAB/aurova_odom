@@ -131,7 +131,7 @@ void odom_estimation(){
             transform.setRotation(q);
 
             geometry_msgs::msg::TransformStamped ts;
-            ts.header.stamp = nh->get_clock()->now();
+            ts.header.stamp = pointcloud_time;
             ts.header.frame_id = "odom";
             ts.child_frame_id = "os_sensor";
             ts.transform = tf2::toMsg(transform); 
