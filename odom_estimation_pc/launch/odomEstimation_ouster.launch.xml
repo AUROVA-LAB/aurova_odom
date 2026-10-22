@@ -12,7 +12,7 @@
         <param name="cropBox_len" value="100.0" />
         <param name="pcl_edge" value="/pcl_edge" />
         <param name="pcl_surf" value="/pcl_surf" />
-        <param name="childframeID" value="os_sensor" />   
+        <param name="baseframeID" value="base_link" />   
     </node>
 
 

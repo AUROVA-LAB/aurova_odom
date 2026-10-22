@@ -22,6 +22,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_eigen/tf2_eigen.hpp>
+#include <tf2_ros/transform_listener.h>
 
 
 //pcl lib
@@ -38,7 +39,7 @@ std::mutex mutex_lock;
 std::queue<sensor_msgs::msg::PointCloud2::SharedPtr> pointCloudEdgeBuf;
 std::queue<sensor_msgs::msg::PointCloud2::SharedPtr> pointCloudSurfBuf;
 
-std::string childframeID = "os_sensor";
+std::string baseframeID = "base_link";
 std::string edge_pcl = "/pcl_edge";
 std::string surf_pcl = "/pcl_surf";
 
@@ -47,6 +48,8 @@ lidar::Lidar lidar_param;
 rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubLaserOdometry;
 rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdometryDiff;
 rclcpp::Node::SharedPtr nh;
+std::shared_ptr<tf2_ros::Buffer> tf_buffer_{nullptr};
+std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
 std::shared_ptr<tf2_ros::TransformBroadcaster> br{nullptr};
 
 rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr time_average;
@@ -89,6 +92,7 @@ void odom_estimation(){
             pcl::fromROSMsg(*pointCloudEdgeBuf.front(), *pointcloud_edge_in);
             pcl::fromROSMsg(*pointCloudSurfBuf.front(), *pointcloud_surf_in);
             rclcpp::Time pointcloud_time = (pointCloudSurfBuf.front())->header.stamp;
+            std::string lidar_frame = pointCloudEdgeBuf.front()->header.frame_id;
             pointCloudEdgeBuf.pop();
             pointCloudSurfBuf.pop();
             mutex_lock.unlock();
@@ -125,30 +129,31 @@ void odom_estimation(){
             q_current = yaw_angle;
             ///////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////
-            tf2::Transform transform;
-            transform.setOrigin( tf2::Vector3(t_current.x(), t_current.y(), t_current.z()) );
+            tf2::Transform T_odom_lidar;
+            T_odom_lidar.setOrigin( tf2::Vector3(t_current.x(), t_current.y(), t_current.z()) );
             tf2::Quaternion q(q_current.x(),q_current.y(),q_current.z(),q_current.w());
-            transform.setRotation(q);
+            T_odom_lidar.setRotation(q);
 
-            geometry_msgs::msg::TransformStamped ts;
-            ts.header.stamp = pointcloud_time;
-            ts.header.frame_id = "odom";
-            ts.child_frame_id = "os_sensor";
-            ts.transform = tf2::toMsg(transform); 
+            geometry_msgs::msg::TransformStamped tf_lidar2base;
+            try
+            {
+            tf_lidar2base = tf_buffer_->lookupTransform(lidar_frame,  baseframeID, pointcloud_time);
+            }
+            catch (tf2::TransformException &ex)
+            {
+                RCLCPP_WARN(nh->get_logger(),"TF exception lidar2base:\n%s", ex.what());
+            }
+            tf2::Transform T_lidar_base;
+            tf2::fromMsg(tf_lidar2base.transform, T_lidar_base);
+            tf2::Transform T_odom_base = T_odom_lidar * T_lidar_base;
             
-            br->sendTransform(ts);
-
-            //// TODO: FROM URDF!!!!!!!!
-            transform.setOrigin( tf2::Vector3(-0.55, 0.0, -0.645) );
-            tf2::Quaternion q2(0.0, 0.0, 0.0, 1.0);
-            transform.setRotation(q2);
-
-            ts.header.frame_id = "os_sensor";
-            ts.child_frame_id = "base_link";
-            ts.transform = tf2::toMsg(transform); 
-
-            br->sendTransform(ts);
-
+            geometry_msgs::msg::TransformStamped tf_odom2base;
+            tf_odom2base.header.stamp = pointcloud_time;
+            tf_odom2base.header.frame_id = "odom";
+            tf_odom2base.child_frame_id = baseframeID;
+            tf_odom2base.transform = tf2::toMsg(T_odom_base); 
+            
+            br->sendTransform(tf_odom2base);
           
             Eigen::Isometry3d odom = Eigen::Isometry3d::Identity();
             odom.linear() = q_current.toRotationMatrix();
@@ -169,7 +174,7 @@ void odom_estimation(){
             // publish odometry
             nav_msgs::msg::Odometry laserOdometry;
             laserOdometry.header.frame_id = "odom";
-            laserOdometry.child_frame_id = childframeID;
+            laserOdometry.child_frame_id = lidar_frame;
             laserOdometry.header.stamp = pointcloud_time;
             laserOdometry.pose.pose.orientation.x = q_current.x();
             laserOdometry.pose.pose.orientation.y = q_current.y();
@@ -181,7 +186,7 @@ void odom_estimation(){
 
             nav_msgs::msg::Odometry odomDiff;
             odomDiff.header.frame_id = "odom";
-            odomDiff.child_frame_id = childframeID;
+            odomDiff.child_frame_id = lidar_frame;
             odomDiff.header.stamp = pointcloud_time;
             odomDiff.pose.pose.orientation.x = q_diff.x();
             odomDiff.pose.pose.orientation.y = q_diff.y();
@@ -259,8 +264,8 @@ int main(int argc, char **argv)
     nh->declare_parameter("cropBox_len", cropBox_len);
     nh->get_parameter("cropBox_len", cropBox_len);
 
-    nh->declare_parameter("childframeID", childframeID);
-    nh->get_parameter("childframeID",childframeID);
+    nh->declare_parameter("baseframeID", baseframeID);
+    nh->get_parameter("baseframeID",baseframeID);
     nh->declare_parameter("pcl_edge", edge_pcl);
     nh->get_parameter("pcl_edge",edge_pcl);
     nh->declare_parameter("pcl_surf", surf_pcl);
@@ -283,6 +288,8 @@ int main(int argc, char **argv)
     time_average = nh->create_publisher<std_msgs::msg::Float64>("/time_average", 1);
 
     br = std::make_unique<tf2_ros::TransformBroadcaster>(nh);
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(nh->get_clock());
+    tf_listener_ = std::make_unique<tf2_ros::TransformListener>(*tf_buffer_);
     std::thread odom_estimation_process{odom_estimation};
 
     rclcpp::spin(nh);
